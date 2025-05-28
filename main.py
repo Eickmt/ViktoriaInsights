@@ -25,7 +25,7 @@ st.markdown("""
     }
     
     .main-header {
-        background: linear-gradient(90deg, #1e3c72, #2a5298);
+        background: linear-gradient(90deg, #2e7d32, #4caf50);
         padding: 1rem;
         border-radius: 10px;
         color: white;
@@ -41,7 +41,7 @@ st.markdown("""
         background-color: #f8f9fa;
         padding: 1rem;
         border-radius: 10px;
-        border-left: 4px solid #1e3c72;
+        border-left: 4px solid #2e7d32;
         margin: 1rem 0;
     }
 </style>
@@ -72,7 +72,7 @@ def main():
             styles={
                 "container": {
                     "padding": "0!important", 
-                    "background-color": "#1e3c72",
+                    "background-color": "#2e7d32",
                     "border-radius": "5px"
                 },
                 "icon": {
@@ -86,11 +86,11 @@ def main():
                     "padding": "1rem",
                     "color": "white",
                     "background-color": "transparent",
-                    "--hover-color": "#2a5298"
+                    "--hover-color": "#4caf50"
                 },
                 "nav-link-selected": {
                     "background-color": "white",
-                    "color": "#1e3c72",
+                    "color": "#2e7d32",
                     "font-weight": "bold"
                 },
             }

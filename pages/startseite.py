@@ -5,7 +5,7 @@ import plotly.express as px
 import os
 
 def show():
-    st.title("🏠 Willkommen bei ViktoriaInsights")
+    st.title("⚽ Willkommen bei ViktoriaInsights")
     
     # Load real birthday data from CSV for next birthday calculation
     next_birthday_name = "Niemand"
