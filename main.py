@@ -10,7 +10,7 @@ from pages import startseite, teamkalender, trainingsstatistiken, esel_der_woche
 
 # Page configuration
 st.set_page_config(
-    page_title="ViktoriaInsights",
+    page_title="VB Insights",
     page_icon="⚽",
     layout="wide",
     initial_sidebar_state="expanded"
