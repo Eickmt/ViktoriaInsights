@@ -58,7 +58,7 @@ def main():
     
     # Navigation in Sidebar
     with st.sidebar:
-        st.image("Bilder/VB_Logo.png", 
+        st.image("VB_Logo.png", 
                 caption="Viktoria Buchholz", width=150)
         
         selected = option_menu(
