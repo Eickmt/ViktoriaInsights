@@ -51,7 +51,7 @@ def main():
     # Header
     st.markdown("""
     <div class="main-header">
-        <h1>⚽ VB Insights</h1>
+        <h1>VB Insights</h1>
         <p>Erste Mannschaft - Viktoria Buchholz</p>
     </div>
     """, unsafe_allow_html=True)
