@@ -10,7 +10,7 @@ from pages import startseite, teamkalender, trainingsstatistiken, esel_der_woche
 
 # Page configuration
 st.set_page_config(
-    page_title="VB Insights",
+    page_title="ViktoriaInsights",
     page_icon="⚽",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -51,7 +51,7 @@ def main():
     # Header
     st.markdown("""
     <div class="main-header">
-        <h1>⚽ ViktoriaInsights</h1>
+        <h1>⚽ VB Insights</h1>
         <p>Erste Mannschaft - Viktoria Buchholz</p>
     </div>
     """, unsafe_allow_html=True)
