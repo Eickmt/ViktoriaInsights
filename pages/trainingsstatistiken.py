@@ -3,148 +3,324 @@ import pandas as pd
 from datetime import datetime, timedelta
 import plotly.express as px
 import plotly.graph_objects as go
-import calendar
+import os
+import numpy as np
 
 def show():
-    st.title("📊 Trainingsstatistiken")
-    st.subheader("Anwesenheit und Leistungsanalyse")
+    st.title("🏆 Trainingsspielsiege")
+    st.subheader("Spielerleistung und Siegesanalyse")
     
-    # Sample training data
-    trainings_data = [
-        {"Datum": "2024-12-03", "Thomas Schmidt": True, "Max Mustermann": True, "Michael Weber": False, "Stefan König": True, "Andreas Müller": True, "Christian Bauer": True},
-        {"Datum": "2024-12-01", "Thomas Schmidt": False, "Max Mustermann": True, "Michael Weber": True, "Stefan König": True, "Andreas Müller": False, "Christian Bauer": True},
-        {"Datum": "2024-11-29", "Thomas Schmidt": True, "Max Mustermann": True, "Michael Weber": True, "Stefan König": False, "Andreas Müller": True, "Christian Bauer": True},
-        {"Datum": "2024-11-26", "Thomas Schmidt": True, "Max Mustermann": False, "Michael Weber": True, "Stefan König": True, "Andreas Müller": True, "Christian Bauer": False},
-        {"Datum": "2024-11-24", "Thomas Schmidt": True, "Max Mustermann": True, "Michael Weber": False, "Stefan König": True, "Andreas Müller": True, "Christian Bauer": True},
-        {"Datum": "2024-11-22", "Thomas Schmidt": False, "Max Mustermann": True, "Michael Weber": True, "Stefan König": True, "Andreas Müller": True, "Christian Bauer": True},
-        {"Datum": "2024-11-19", "Thomas Schmidt": True, "Max Mustermann": True, "Michael Weber": True, "Stefan König": False, "Andreas Müller": False, "Christian Bauer": True},
-        {"Datum": "2024-11-17", "Thomas Schmidt": True, "Max Mustermann": True, "Michael Weber": True, "Stefan König": True, "Andreas Müller": True, "Christian Bauer": True},
-        {"Datum": "2024-11-15", "Thomas Schmidt": True, "Max Mustermann": False, "Michael Weber": True, "Stefan König": True, "Andreas Müller": True, "Christian Bauer": True},
-        {"Datum": "2024-11-12", "Thomas Schmidt": True, "Max Mustermann": True, "Michael Weber": False, "Stefan König": True, "Andreas Müller": True, "Christian Bauer": False},
-    ]
+    # Load training victories data
+    try:
+        df_siege = pd.read_csv("VB_Trainingsspielsiege.csv", sep=";")
+        
+        # Clean and process the data
+        spieler_namen = df_siege['Spielername'].tolist()
+        datum_spalten = [col for col in df_siege.columns if col != 'Spielername']
+        
+        # Convert date columns to datetime
+        datum_mapping = {}
+        
+        # German month mapping for robustness
+        german_months = {
+            'Jan': 'Jan', 'Feb': 'Feb', 'Mrz': 'Mar', 'Apr': 'Apr',
+            'Mai': 'May', 'Jun': 'Jun', 'Jul': 'Jul', 'Aug': 'Aug',
+            'Sep': 'Sep', 'Okt': 'Oct', 'Nov': 'Nov', 'Dez': 'Dec'
+        }
+        
+        for datum_str in datum_spalten:
+            try:
+                # Parse dates - try different formats
+                datum_clean = datum_str.strip()
+                if datum_clean:
+                    # Convert German months to English for pandas
+                    datum_english = datum_clean
+                    for de_month, en_month in german_months.items():
+                        if de_month in datum_clean:
+                            datum_english = datum_clean.replace(de_month, en_month)
+                            break
+                    
+                    # Try format with year first (e.g., "14. Jan 2025")
+                    if any(year in datum_english for year in ['2024', '2025', '2026']):
+                        parsed_date = pd.to_datetime(datum_english, format="%d. %b %Y")
+                    else:
+                        # Fall back to format without year (e.g., "14. Jan") and assume current year
+                        datum_with_year = f"{datum_english} 2024"
+                        parsed_date = pd.to_datetime(datum_with_year, format="%d. %b %Y")
+                    datum_mapping[datum_str] = parsed_date
+            except Exception as e:
+                # Skip invalid dates and show which ones fail
+                st.sidebar.error(f"❌ Datum nicht erkannt: {datum_str}")
+                continue
+        
+        # Create a melted dataframe for easier analysis
+        melted_data = []
+        for _, row in df_siege.iterrows():
+            spieler = row['Spielername']
+            for datum_str in datum_spalten:
+                if datum_str in datum_mapping and pd.notna(row[datum_str]) and row[datum_str] == 1:
+                    melted_data.append({
+                        'Spieler': spieler,
+                        'Datum': datum_mapping[datum_str],
+                        'Sieg': 1
+                    })
+        
+        df_melted = pd.DataFrame(melted_data)
+        
+        if len(df_melted) == 0:
+            st.warning("Keine Siegesdaten gefunden. Bitte überprüfen Sie die CSV-Datei.")
+            return
+            
+    except FileNotFoundError:
+        st.error("❌ Datei 'VB_Trainingsspielsiege.csv' nicht gefunden!")
+        st.info("Bitte stellen Sie sicher, dass die CSV-Datei im Hauptverzeichnis liegt.")
+        return
+    except Exception as e:
+        st.error(f"❌ Fehler beim Laden der Daten: {str(e)}")
+        return
     
-    df_training = pd.DataFrame(trainings_data)
-    df_training['Datum'] = pd.to_datetime(df_training['Datum'])
-    df_training = df_training.sort_values('Datum', ascending=False)
+    # Filter options
+    st.sidebar.header("Zeitraum Filter")
     
-    # Get player names (excluding date column)
-    spieler_namen = [col for col in df_training.columns if col != 'Datum']
+    # Custom CSS for better sidebar contrast
+    st.sidebar.markdown("""
+    <style>
+    .stSelectbox > div > div > div {
+        background-color: white !important;
+        color: black !important;
+        border: 2px solid #ccc !important;
+    }
+    .stSelectbox > div > div > div > div {
+        color: black !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
     
-    # Calculate attendance statistics
-    gesamt_trainings = len(df_training)
+    filter_option = st.sidebar.selectbox(
+        "Wählen Sie den Analysezeitraum:",
+        ["Gesamtzeitraum", "Letzte 30 Tage", "Letzte 7 Tage"]
+    )
     
-    # Overall stats
+    # Apply date filter
+    heute = datetime.now()
+    if filter_option == "Letzte 7 Tage":
+        start_datum = heute - timedelta(days=7)
+        df_filtered = df_melted[df_melted['Datum'] >= start_datum]
+        filter_text = "den letzten 7 Tagen"
+    elif filter_option == "Letzte 30 Tage":
+        start_datum = heute - timedelta(days=30)
+        df_filtered = df_melted[df_melted['Datum'] >= start_datum]
+        filter_text = "den letzten 30 Tagen"
+    else:
+        df_filtered = df_melted.copy()
+        filter_text = "dem Gesamtzeitraum"
+    
+    # Calculate statistics
+    if len(df_filtered) == 0:
+        st.warning(f"Keine Daten für {filter_text} verfügbar.")
+        return
+    
+    gesamt_siege = len(df_filtered)
+    einzigartige_tage = df_filtered['Datum'].nunique()
+    aktive_spieler = df_filtered['Spieler'].nunique()
+    durchschnitt_spieler_pro_training = (gesamt_siege / einzigartige_tage * 2) if einzigartige_tage > 0 else 0
+    
+    # Main metrics
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        durchschnittliche_anwesenheit = df_training[spieler_namen].sum().sum() / (len(spieler_namen) * gesamt_trainings) * 100
-        st.metric("📈 Ø Anwesenheit", f"{durchschnittliche_anwesenheit:.1f}%")
+        st.metric("🏆 Siege gesamt", gesamt_siege)
     
     with col2:
-        letztes_training = df_training.iloc[0]
-        anwesende_letztes = sum(letztes_training[spieler_namen])
-        st.metric("🏃 Letztes Training", f"{anwesende_letztes}/{len(spieler_namen)}")
+        st.metric("📅 Trainingstage", einzigartige_tage)
     
     with col3:
-        st.metric("📅 Trainings gesamt", gesamt_trainings)
+        st.metric("👥 Aktive Spieler", aktive_spieler)
     
     with col4:
-        # Best attendance this month
-        dieser_monat = df_training[df_training['Datum'] >= (datetime.now() - timedelta(days=30))]
-        if len(dieser_monat) > 0:
-            monatliche_anwesenheit = dieser_monat[spieler_namen].sum().sum() / (len(spieler_namen) * len(dieser_monat)) * 100
-            st.metric("📊 Dieser Monat", f"{monatliche_anwesenheit:.1f}%")
-        else:
-            st.metric("📊 Dieser Monat", "0%")
+        st.metric("🏃 Ø Spieler/Training", f"{durchschnitt_spieler_pro_training:.1f}")
+    
+    # Show current filter
+    st.info(f"📊 Anzeige für: **{filter_text}** ({filter_option})")
     
     # Tabs for different views
-    tab1, tab2, tab3, tab4 = st.tabs(["👥 Spieler-Übersicht", "📈 Trends & Analysen", "📋 Training eintragen", "⚙️ Einstellungen"])
+    tab1, tab2, tab3, tab4 = st.tabs(["🏆 Spieler-Ranking", "📈 Trends & Analysen", "📋 Detailansicht", "➕ Neue Siege-Einträge"])
     
     with tab1:
-        st.subheader("👥 Individuelle Anwesenheitsstatistiken")
+        st.subheader("🏆 Spieler-Ranking")
         
-        # Calculate individual stats
-        spieler_stats = []
+        # Calculate player statistics
+        spieler_stats = df_filtered.groupby('Spieler')['Sieg'].sum().reset_index()
+        spieler_stats.columns = ['Spieler', 'Siege']
+        spieler_stats = spieler_stats.sort_values('Siege', ascending=False)
+        
+        # Add all players (including those with 0 wins in the filtered period)
+        alle_spieler_stats = []
         for spieler in spieler_namen:
-            anwesenheit = df_training[spieler].sum()
-            quote = (anwesenheit / gesamt_trainings) * 100
+            siege_count = spieler_stats[spieler_stats['Spieler'] == spieler]['Siege'].values
+            siege = siege_count[0] if len(siege_count) > 0 else 0
             
-            # Streak calculation
-            streak = 0
-            for _, row in df_training.iterrows():
-                if row[spieler]:
-                    streak += 1
-                else:
-                    break
+            # Calculate percentage of training days won
+            siege_quote = (siege / einzigartige_tage * 100) if einzigartige_tage > 0 else 0
             
-            # Last 5 trainings
-            letzte_5 = df_training.head(5)[spieler].sum()
-            letzte_5_quote = (letzte_5 / min(5, gesamt_trainings)) * 100
+            # Determine status
+            if siege >= 3:
+                status = '🔥'
+            elif siege >= 1:
+                status = '⚡'
+            else:
+                status = '😴'
             
-            spieler_stats.append({
+            alle_spieler_stats.append({
                 'Spieler': spieler,
-                'Anwesenheit': anwesenheit,
-                'Quote': quote,
-                'Letzte_5': letzte_5_quote,
-                'Aktuelle_Serie': streak,
-                'Status': '🔥' if streak >= 3 else '⚡' if streak >= 1 else '😴'
+                'Siege': siege,
+                'Quote': siege_quote,
+                'Status': status
             })
         
-        spieler_df = pd.DataFrame(spieler_stats).sort_values('Quote', ascending=False)
+        spieler_ranking = pd.DataFrame(alle_spieler_stats).sort_values('Siege', ascending=False)
         
-        # Display player cards
-        for i, (_, player) in enumerate(spieler_df.iterrows()):
-            if i % 2 == 0:
-                col1, col2 = st.columns(2)
-            
-            col = col1 if i % 2 == 0 else col2
-            
-            with col:
-                # Color coding based on attendance
-                if player['Quote'] >= 90:
-                    border_color = "#28a745"  # Green
-                elif player['Quote'] >= 75:
-                    border_color = "#ffc107"  # Yellow
-                else:
-                    border_color = "#dc3545"  # Red
+        # Display top performers
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.markdown("### 🥇 Top Performer")
+            if len(spieler_ranking) > 0:
+                top_player = spieler_ranking.iloc[0]
+                st.success(f"""
+                **{top_player['Spieler']}**
                 
-                st.markdown(f"""
-                <div style='
-                    padding: 1rem;
-                    border-left: 4px solid {border_color};
-                    background-color: #f8f9fa;
-                    border-radius: 5px;
-                    margin: 0.5rem 0;
-                '>
-                    <h4 style='margin: 0 0 0.5rem 0;'>{player['Status']} {player['Spieler']}</h4>
-                    <p style='margin: 0.2rem 0;'><strong>Gesamt:</strong> {player['Quote']:.1f}% ({player['Anwesenheit']}/{gesamt_trainings})</p>
-                    <p style='margin: 0.2rem 0;'><strong>Letzte 5:</strong> {player['Letzte_5']:.1f}%</p>
-                    <p style='margin: 0.2rem 0;'><strong>Serie:</strong> {player['Aktuelle_Serie']} Trainings</p>
-                </div>
-                """, unsafe_allow_html=True)
+                🏆 {top_player['Siege']} Siege
+                
+                📊 {top_player['Quote']:.1f}% der Trainingstage
+                """)
+        
+        with col2:
+            st.markdown("### 🔥 Heißester Spieler")
+            # Find player with longest current winning streak
+            if len(df_filtered) > 0:
+                # Get unique training dates sorted descending (newest first)
+                unique_dates = sorted(df_filtered['Datum'].unique(), reverse=True)
+                
+                # Calculate current winning streaks for each player
+                player_streaks = {}
+                for spieler in spieler_namen:
+                    streak = 0
+                    # Go through dates from newest to oldest
+                    for datum in unique_dates:
+                        player_wins_on_date = len(df_filtered[(df_filtered['Spieler'] == spieler) & (df_filtered['Datum'] == datum)])
+                        if player_wins_on_date > 0:
+                            streak += player_wins_on_date
+                        else:
+                            # Break the streak if no win on this date
+                            break
+                    player_streaks[spieler] = streak
+                
+                # Find player with highest current streak
+                if player_streaks:
+                    hottest_player = max(player_streaks, key=player_streaks.get)
+                    hottest_streak = player_streaks[hottest_player]
+                    
+                    if hottest_streak > 0:
+                        st.info(f"""
+                        **{hottest_player}**
+                        
+                        🔥 {hottest_streak} Siege in Serie
+                        
+                        📈 Aktuell stark!
+                        """)
+                    else:
+                        st.info("**Keine aktive Serie**\n\n🔥 0 Siege in Serie")
+                else:
+                    st.info("**Keine Daten**\n\n📊 Keine Serien verfügbar")
+        
+        with col3:
+            st.markdown("### 📊 Durchschnitt")
+            avg_siege = spieler_ranking['Siege'].mean()
+            median_siege = spieler_ranking['Siege'].median()
+            st.warning(f"""
+            **Team-Statistik**
+            
+            📊 Ø {avg_siege:.1f} Siege
+            
+            📍 Median: {median_siege:.1f}
+            """)
         
         st.markdown("---")
         
-        # Attendance table
-        st.subheader("📅 Trainings-Übersicht")
+        # Player ranking table
+        st.subheader("📋 Detailliertes Ranking")
         
-        # Format training data for display
-        display_training = df_training.copy()
-        display_training['Datum'] = display_training['Datum'].dt.strftime("%d.%m.%Y")
+        # Calculate team average for dynamic thresholds
+        siege_values = [player['Siege'] for player in alle_spieler_stats]
+        if len(siege_values) > 0:
+            team_average = np.mean(siege_values)
+            
+            # For players below average, split into 3/4 yellow and 1/4 red
+            below_average_players = [s for s in siege_values if s < team_average]
+            if len(below_average_players) > 0:
+                # Calculate threshold for bottom 25% of below-average players
+                red_threshold = np.percentile(below_average_players, 25)
+            else:
+                red_threshold = 0
+            
+        else:
+            team_average = red_threshold = 0
         
-        # Replace True/False with emojis
-        for spieler in spieler_namen:
-            display_training[spieler] = display_training[spieler].apply(lambda x: '✅' if x else '❌')
-        
-        # Add attendance count per training
-        anwesenheit_pro_training = []
-        for _, row in df_training.iterrows():
-            count = sum(row[spieler_namen])
-            anwesenheit_pro_training.append(f"{count}/{len(spieler_namen)}")
-        
-        display_training['Anwesend'] = anwesenheit_pro_training
-        
-        st.dataframe(display_training, use_container_width=True, hide_index=True)
+        # Display player cards
+        for i, (_, player) in enumerate(spieler_ranking.iterrows()):
+            if i % 3 == 0:
+                col1, col2, col3 = st.columns(3)
+            
+            col = [col1, col2, col3][i % 3]
+            
+            # 4-tier color coding system
+            if i < 3:  # Top 3 positions
+                border_color = "#051a0a"  # Very very dark green - Top 3
+                bg_color = "#8fbc8f"  # Darker green background
+                performance_level = f"🏆 Platz {i+1}"
+            elif player['Siege'] >= team_average:
+                border_color = "#28a745"  # Green - Above average
+                bg_color = "#d4edda"  # Light green background
+                performance_level = "Über Durchschnitt"
+            elif player['Siege'] >= red_threshold:
+                border_color = "#ffc107"  # Yellow - Below average but not bottom 25%
+                bg_color = "#fff3cd"  # Light yellow background
+                performance_level = "Unter Durchschnitt"
+            else:
+                border_color = "#dc3545"  # Red - Bottom 25% of below average
+                bg_color = "#f8d7da"  # Light red background
+                performance_level = "Untere 25%"
+            
+            with col:
+                st.markdown(f"""
+                <div style='
+                    padding: 1.2rem;
+                    border-left: 5px solid {border_color};
+                    background-color: {bg_color};
+                    border-radius: 8px;
+                    margin: 0.5rem 0;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                    border: 1px solid rgba(0,0,0,0.1);
+                '>
+                    <h4 style='
+                        margin: 0 0 0.8rem 0;
+                        color: #212529;
+                        font-weight: bold;
+                        font-size: 1.1rem;
+                    '>#{i+1} {player['Status']} {player['Spieler']}</h4>
+                    <p style='
+                        margin: 0.3rem 0;
+                        color: #495057;
+                        font-size: 0.95rem;
+                    '><strong style='color: #212529;'>Siege:</strong> {player['Siege']}</p>
+                    <p style='
+                        margin: 0.3rem 0;
+                        color: #495057;
+                        font-size: 0.95rem;
+                    '><strong style='color: #212529;'>Quote:</strong> {player['Quote']:.1f}%</p>
+                </div>
+                """, unsafe_allow_html=True)
     
     with tab2:
         st.subheader("📈 Trends und Analysen")
@@ -152,235 +328,265 @@ def show():
         col1, col2 = st.columns(2)
         
         with col1:
-            # Attendance trend over time
-            df_trend = df_training.copy()
-            df_trend['Anwesenheit_Gesamt'] = df_trend[spieler_namen].sum(axis=1)
-            df_trend['Anwesenheit_Prozent'] = (df_trend['Anwesenheit_Gesamt'] / len(spieler_namen)) * 100
-            df_trend = df_trend.sort_values('Datum')
-            
-            fig1 = px.line(df_trend, x='Datum', y='Anwesenheit_Prozent',
-                          title='Anwesenheitstrend über Zeit',
-                          line_shape='spline')
-            fig1.update_traces(line_color='#1e3c72', line_width=3, mode='lines+markers')
-            fig1.update_layout(
-                plot_bgcolor='rgba(0,0,0,0)',
-                paper_bgcolor='rgba(0,0,0,0)',
-                yaxis_title="Anwesenheit (%)",
-                yaxis=dict(range=[0, 100])
-            )
-            st.plotly_chart(fig1, use_container_width=True)
+            # Players per training day (victories * 2 because of 2 teams)
+            if len(df_filtered) > 0:
+                daily_stats = df_filtered.groupby('Datum').size().reset_index()
+                daily_stats.columns = ['Datum', 'Siege']
+                daily_stats['Spieler'] = daily_stats['Siege'] * 2  # 2 teams per training
+                daily_stats = daily_stats.sort_values('Datum')
+                
+                fig1 = px.line(daily_stats, x='Datum', y='Spieler',
+                              title='Spieler pro Training',
+                              line_shape='spline')
+                fig1.update_traces(line_color='#1e3c72', line_width=3, mode='lines+markers')
+                fig1.update_layout(
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    yaxis_title="Anzahl Spieler"
+                )
+                st.plotly_chart(fig1, use_container_width=True)
         
         with col2:
-            # Individual attendance comparison
-            attendance_data = []
-            for spieler in spieler_namen:
-                quote = (df_training[spieler].sum() / gesamt_trainings) * 100
-                attendance_data.append({'Spieler': spieler, 'Quote': quote})
+            # Player comparison bar chart (sorted descending - best on top)
+            if len(spieler_ranking) > 0:
+                # Show top 10 players, sorted descending (best first)
+                top_players = spieler_ranking.head(10).sort_values('Siege', ascending=True)  # ascending=True for horizontal bar chart puts highest values on top
+                
+                fig2 = px.bar(top_players, x='Siege', y='Spieler',
+                             title='Top 10 Spieler - Siege Vergleich',
+                             orientation='h',
+                             color='Siege',
+                             color_continuous_scale='RdYlGn')
+                fig2.update_layout(
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    paper_bgcolor='rgba(0,0,0,0)'
+                )
+                st.plotly_chart(fig2, use_container_width=True)
+        
+        # Weekly/Monthly analysis if enough data
+        if len(df_filtered) > 0:
+            st.subheader("📊 Zeitraum-Analyse")
             
-            fig2 = px.bar(attendance_data, x='Quote', y='Spieler',
-                         title='Anwesenheitsquote pro Spieler',
-                         orientation='h',
-                         color='Quote',
-                         color_continuous_scale='RdYlGn')
-            fig2.update_layout(
-                plot_bgcolor='rgba(0,0,0,0)',
-                paper_bgcolor='rgba(0,0,0,0)',
-                xaxis=dict(range=[0, 100])
-            )
-            st.plotly_chart(fig2, use_container_width=True)
-        
-        # Weekly analysis
-        st.subheader("📊 Wöchentliche Analyse")
-        
-        # Group by week
-        df_weekly = df_training.copy()
-        df_weekly['Woche'] = df_weekly['Datum'].dt.to_period('W')
-        weekly_stats = df_weekly.groupby('Woche')[spieler_namen].mean() * 100
-        weekly_stats = weekly_stats.reset_index()
-        weekly_stats['Woche'] = weekly_stats['Woche'].astype(str)
-        
-        # Melt for visualization
-        weekly_melted = weekly_stats.melt(id_vars=['Woche'], 
-                                        value_vars=spieler_namen,
-                                        var_name='Spieler', 
-                                        value_name='Anwesenheit')
-        
-        fig3 = px.line(weekly_melted, x='Woche', y='Anwesenheit', 
-                      color='Spieler',
-                      title='Wöchentliche Anwesenheit pro Spieler',
-                      line_shape='spline')
-        fig3.update_layout(
-            plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)',
-            yaxis=dict(range=[0, 100]),
-            xaxis_title="Kalenderwoche",
-            yaxis_title="Anwesenheit (%)"
-        )
-        st.plotly_chart(fig3, use_container_width=True)
-        
-        # Best/Worst performers
-        st.subheader("🏆 Top & Flop")
-        
-        col1, col2, col3 = st.columns(3)
-        
-        best_player = spieler_df.iloc[0]
-        worst_player = spieler_df.iloc[-1]
-        most_consistent = spieler_df.loc[spieler_df['Letzte_5'].idxmax()]
-        
-        with col1:
-            st.success(f"""
-            **🥇 Beste Anwesenheit**
-            
-            {best_player['Spieler']}
-            
-            {best_player['Quote']:.1f}% Anwesenheit
-            """)
-        
-        with col2:
-            st.info(f"""
-            **🔥 Heißeste Serie**
-            
-            {spieler_df.loc[spieler_df['Aktuelle_Serie'].idxmax(), 'Spieler']}
-            
-            {spieler_df['Aktuelle_Serie'].max()} Trainings in Folge
-            """)
-        
-        with col3:
-            st.warning(f"""
-            **⚠️ Braucht Motivation**
-            
-            {worst_player['Spieler']}
-            
-            {worst_player['Quote']:.1f}% Anwesenheit
-            """)
+            # Group by week if we have enough data
+            if df_filtered['Datum'].nunique() > 7:
+                # Create a better weekly analysis
+                df_weekly = df_filtered.copy()
+                df_weekly['Woche'] = df_filtered['Datum'].dt.to_period('W-MON')  # Week starting Monday
+                
+                # Get all weeks in the data
+                all_weeks = sorted(df_weekly['Woche'].unique())
+                
+                # Show only top 5 performers for clarity
+                top_performers = spieler_ranking.head(5)['Spieler'].tolist()
+                
+                # Create a complete dataset with all combinations
+                weekly_data = []
+                for week in all_weeks:
+                    for player in top_performers:
+                        # Count victories for this player in this week
+                        player_week_victories = len(df_weekly[
+                            (df_weekly['Woche'] == week) & 
+                            (df_weekly['Spieler'] == player)
+                        ])
+                        weekly_data.append({
+                            'Woche': str(week),
+                            'Spieler': player,
+                            'Siege': player_week_victories
+                        })
+                
+                weekly_df = pd.DataFrame(weekly_data)
+                
+                if len(weekly_df) > 0:
+                    # Clean up week format for display - make it more readable
+                    weekly_df['Woche_Display'] = weekly_df['Woche'].apply(
+                        lambda x: f"KW {str(x).split('-W')[1]}" if '-W' in str(x) else str(x)
+                    )
+                    
+                    fig3 = px.line(weekly_df, 
+                                  x='Woche_Display', 
+                                  y='Siege', 
+                                  color='Spieler',
+                                  title='Wöchentliche Siege - Top 5 Spieler',
+                                  markers=True)
+                    fig3.update_layout(
+                        plot_bgcolor='rgba(0,0,0,0)',
+                        paper_bgcolor='rgba(0,0,0,0)',
+                        xaxis_title="Kalenderwoche",
+                        yaxis_title="Anzahl Siege",
+                        xaxis={'tickangle': 45}
+                    )
+                    fig3.update_traces(line_width=2, marker_size=6)
+                    st.plotly_chart(fig3, use_container_width=True)
     
     with tab3:
-        st.subheader("📋 Neues Training eintragen")
+        st.subheader("📋 Detailansicht")
         
-        with st.form("add_training"):
+        # Show raw data in a nice format
+        if len(df_filtered) > 0:
+            # Create a pivot table for better overview with individual dates
+            pivot_table = df_filtered.pivot_table(
+                index='Spieler', 
+                columns='Datum', 
+                values='Sieg', 
+                aggfunc='sum',
+                fill_value=0
+            )
+            
+            # Format dates for column headers
+            pivot_table.columns = [d.strftime("%d.%m.%Y") for d in pivot_table.columns]
+            
+            # Add total column
+            pivot_table['Gesamt'] = pivot_table.sum(axis=1)
+            
+            # Sort by total
+            pivot_table = pivot_table.sort_values('Gesamt', ascending=False)
+            
+            st.subheader("🗓️ Siege pro Spieler und Trainingstag")
+            st.dataframe(pivot_table, use_container_width=True)
+            
+            # Summary statistics
+            st.markdown("---")
+            st.subheader("📊 Zusammenfassung")
+            
             col1, col2 = st.columns(2)
             
             with col1:
-                training_datum = st.date_input("Trainingsdatum", value=datetime.now().date())
-                training_typ = st.selectbox("Trainingsart", 
-                                          ["Mannschaftstraining", "Konditionstraining", "Techniktraining", "Torwarttraining"])
+                st.markdown("**Top 5 Spieler:**")
+                for i, (spieler, siege) in enumerate(pivot_table['Gesamt'].head(5).items()):
+                    st.write(f"{i+1}. {spieler}: {siege} Siege")
             
             with col2:
-                wetter = st.selectbox("Wetter", ["Sonnig ☀️", "Bewölkt ☁️", "Regen 🌧️", "Schnee ❄️"])
-                intensität = st.slider("Trainingsintensität", 1, 10, 7)
-            
-            st.markdown("### Anwesenheit")
-            
-            anwesenheit = {}
-            cols = st.columns(3)
-            
-            for i, spieler in enumerate(spieler_namen):
-                col = cols[i % 3]
-                with col:
-                    anwesenheit[spieler] = st.checkbox(spieler, value=True)
-            
-            notizen = st.text_area("Trainingsnotizen (optional)")
-            
-            submitted = st.form_submit_button("Training speichern")
-            
-            if submitted:
-                anwesende = sum(anwesenheit.values())
-                st.success(f"✅ Training vom {training_datum.strftime('%d.%m.%Y')} wurde gespeichert!")
-                st.info(f"📊 Anwesenheit: {anwesende}/{len(spieler_namen)} Spieler")
-                st.info("💡 In einer echten App würde dieses Training in der Datenbank gespeichert.")
-                
-                # Show impact on statistics
-                for spieler, anwesend in anwesenheit.items():
-                    if not anwesend:
-                        aktuelle_quote = (df_training[spieler].sum() / gesamt_trainings) * 100
-                        neue_quote = (df_training[spieler].sum() / (gesamt_trainings + 1)) * 100
-                        st.warning(f"⚠️ {spieler} fehlt - Quote sinkt von {aktuelle_quote:.1f}% auf {neue_quote:.1f}%")
-        
-        st.markdown("---")
-        
-        # Quick actions
-        st.subheader("⚡ Schnellaktionen")
-        
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            if st.button("✅ Alle anwesend", use_container_width=True):
-                st.info("Vollständige Anwesenheit würde eingetragen")
-        
-        with col2:
-            if st.button("📋 Template laden", use_container_width=True):
-                st.info("Letztes Training als Vorlage würde geladen")
-        
-        with col3:
-            if st.button("❌ Training abgesagt", use_container_width=True):
-                st.info("Training-Absage würde vermerkt")
+                st.markdown("**Aktivste Trainingstage:**")
+                daily_summary = df_filtered.groupby('Datum').size().sort_values(ascending=False)
+                for i, (datum, siege) in enumerate(daily_summary.head(5).items()):
+                    st.write(f"{i+1}. {datum.strftime('%d.%m.%Y')}: {siege} Siege")
+        else:
+            st.info("Keine Daten für den gewählten Zeitraum verfügbar.")
     
     with tab4:
-        st.subheader("⚙️ Trainingseinstellungen")
+        st.subheader("➕ Neue Siege-Einträge")
         
-        col1, col2 = st.columns(2)
+        st.info("📝 Hier können Sie neue Siege für einen Trainingstag hinzufügen.")
         
-        with col1:
-            st.markdown("**📅 Trainingszeiten**")
-            
-            trainingszeiten = {
-                "Dienstag": "19:00 - 20:30",
-                "Donnerstag": "19:00 - 20:30", 
-                "Sonntag (Spieltag)": "Nach Ansetzung"
-            }
-            
-            for tag, zeit in trainingszeiten.items():
-                st.write(f"**{tag}:** {zeit}")
-            
-            st.markdown("---")
-            
-            st.markdown("**🎯 Anwesenheitsziele**")
-            
-            ziel_quote = st.slider("Team-Anwesenheitsziel (%)", 60, 100, 85)
-            individuelles_ziel = st.slider("Individuelles Mindest-Ziel (%)", 50, 95, 75)
-            
-            if st.button("Ziele speichern"):
-                st.success("✅ Anwesenheitsziele gespeichert!")
+        # Date selection
+        selected_date = st.date_input(
+            "📅 Trainingstag auswählen:",
+            value=datetime.now().date(),
+            help="Wählen Sie das Datum des Trainings aus"
+        )
         
-        with col2:
-            st.markdown("**🏆 Anwesenheits-Belohnungen**")
+        # Convert date to string format that matches CSV columns
+        date_str = selected_date.strftime("%d. %b %Y")
+        german_months = {
+            'Jan': 'Jan', 'Feb': 'Feb', 'Mar': 'Mrz', 'Apr': 'Apr',
+            'May': 'Mai', 'Jun': 'Jun', 'Jul': 'Jul', 'Aug': 'Aug',
+            'Sep': 'Sep', 'Oct': 'Okt', 'Nov': 'Nov', 'Dec': 'Dez'
+        }
+        
+        # Convert English months to German
+        for en_month, de_month in german_months.items():
+            if en_month in date_str:
+                date_str = date_str.replace(en_month, de_month)
+                break
+        
+        st.write(f"**Gewähltes Datum:** {date_str}")
+        
+        # Check if date already exists in CSV
+        existing_columns = [col for col in df_siege.columns if col != 'Spielername']
+        date_exists = date_str in existing_columns
+        
+        if date_exists:
+            st.warning(f"⚠️ Das Datum {date_str} existiert bereits in der CSV-Datei!")
             
-            belohnungen = {
-                "100% im Monat": "Freigetränk",
-                "95%+ in der Saison": "Team-Dinner",
-                "Beste Quote": "MVP-Auszeichnung",
-                "Längste Serie": "Bonus-Freizeit"
-            }
+            # Show current entries for this date
+            st.markdown("**Aktuelle Einträge für diesen Tag:**")
+            current_entries = df_siege[['Spielername', date_str]].copy()
+            current_entries.columns = ['Spieler', 'Siege']
+            current_entries = current_entries[current_entries['Siege'] == 1]
             
-            for kriterium, belohnung in belohnungen.items():
-                st.write(f"**{kriterium}:** {belohnung}")
-            
-            st.markdown("---")
-            
-            st.markdown("**📊 Export & Reports**")
-            
-            if st.button("📈 Monatsreport", use_container_width=True):
-                st.info("Monatsreport würde erstellt")
-            
-            if st.button("📋 Anwesenheitsliste", use_container_width=True):
-                st.info("Excel-Export würde gestartet")
-            
-            if st.button("📧 Email-Reminder", use_container_width=True):
-                st.info("Erinnerung würde an alle gesendet")
+            if len(current_entries) > 0:
+                for _, player in current_entries.iterrows():
+                    st.write(f"🏆 {player['Spieler']}")
+            else:
+                st.write("Keine Siege für diesen Tag eingetragen.")
         
         st.markdown("---")
         
-        # Performance tracking
-        st.subheader("📈 Leistungstracking (Zukunft)")
+        # Player selection
+        st.subheader("👥 Spieler auswählen")
+        st.write("Wählen Sie alle Spieler aus, die an diesem Tag Siege erhalten haben:")
         
-        st.info("""
-        **Geplante Funktionen:**
-        - 🏃‍♂️ Laufzeiten und Fitness-Tests
-        - ⚽ Torschüsse und Passgenauigkeit
-        - 🎯 Individuelle Leistungsziele
-        - 📊 Fortschritts-Visualisierung
-        - 🏆 Leistungsvergleiche
-        """)
+        # Create checkboxes for all players
+        col_count = 3
+        cols = st.columns(col_count)
+        selected_players = []
         
-        if st.button("🔔 Benachrichtigung bei neuen Features"):
-            st.success("✅ Du wirst über neue Tracking-Features informiert!") 
+        for i, spieler in enumerate(spieler_namen):
+            col_idx = i % col_count
+            with cols[col_idx]:
+                # Check if player already has an entry for this date
+                current_value = False
+                if date_exists:
+                    try:
+                        current_value = df_siege[df_siege['Spielername'] == spieler][date_str].iloc[0] == 1
+                    except (IndexError, KeyError):
+                        current_value = False
+                
+                is_selected = st.checkbox(
+                    spieler, 
+                    value=current_value,
+                    key=f"player_{spieler}_{selected_date}"
+                )
+                
+                if is_selected:
+                    selected_players.append(spieler)
+        
+        st.markdown("---")
+        
+        # Summary
+        if selected_players:
+            st.subheader("📊 Zusammenfassung")
+            st.write(f"**Datum:** {date_str}")
+            st.write(f"**Anzahl Spieler mit Siegen:** {len(selected_players)}")
+            st.write("**Gewählte Spieler:**")
+            for player in selected_players:
+                st.write(f"🏆 {player}")
+        
+        # Save button
+        if st.button("💾 Einträge speichern", type="primary", use_container_width=True):
+            try:
+                # Load current CSV
+                df_current = pd.read_csv("VB_Trainingsspielsiege.csv", sep=";")
+                
+                # Add new column if date doesn't exist
+                if date_str not in df_current.columns:
+                    df_current[date_str] = ""
+                
+                # Update entries for selected players
+                for spieler in spieler_namen:
+                    mask = df_current['Spielername'] == spieler
+                    if spieler in selected_players:
+                        df_current.loc[mask, date_str] = 1
+                    else:
+                        df_current.loc[mask, date_str] = ""
+                
+                # Save updated CSV
+                df_current.to_csv("VB_Trainingsspielsiege.csv", sep=";", index=False)
+                
+                st.success(f"✅ Einträge für {date_str} erfolgreich gespeichert!")
+                st.balloons()
+                
+                # Refresh page to show updated data
+                st.info("🔄 Seite wird automatisch aktualisiert...")
+                st.rerun()
+                
+            except Exception as e:
+                st.error(f"❌ Fehler beim Speichern: {str(e)}")
+        
+        # Data quality info
+        st.info(f"""
+        **📊 Aktuelle Datenbank:**
+        - Verfügbare Trainingstage: {len(datum_spalten)}
+        - Registrierte Spieler: {len(spieler_namen)}
+        - Siege gesamt: {len(df_melted)}
+        """) 
