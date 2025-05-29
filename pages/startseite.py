@@ -111,6 +111,77 @@ def show():
     except Exception as e:
         debug_info.append(f"❌ Unerwarteter Fehler: {str(e)}")
     
+    # Load real training data for training quote calculation
+    training_participants = 0
+    training_delta = 0
+    training_delta_text = ""
+    
+    try:
+        # Load training victories data
+        df_training = pd.read_csv("VB_Trainingsspielsiege.csv", sep=";")
+        
+        # Get date columns (exclude Spielername)
+        date_columns = [col for col in df_training.columns if col != 'Spielername']
+        
+        if len(date_columns) > 0:
+            # Convert date columns to datetime for sorting
+            date_mapping = {}
+            german_months = {
+                'Jan': 'Jan', 'Feb': 'Feb', 'Mrz': 'Mar', 'Apr': 'Apr',
+                'Mai': 'May', 'Jun': 'Jun', 'Jul': 'Jul', 'Aug': 'Aug',
+                'Sep': 'Sep', 'Okt': 'Oct', 'Nov': 'Nov', 'Dez': 'Dec'
+            }
+            
+            for date_str in date_columns:
+                try:
+                    # Convert German months to English
+                    date_english = date_str
+                    for de_month, en_month in german_months.items():
+                        if de_month in date_str:
+                            date_english = date_str.replace(de_month, en_month)
+                            break
+                    
+                    # Parse date
+                    if any(year in date_english for year in ['2024', '2025', '2026']):
+                        parsed_date = pd.to_datetime(date_english, format="%d. %b %Y")
+                    else:
+                        date_with_year = f"{date_english} 2024"
+                        parsed_date = pd.to_datetime(date_with_year, format="%d. %b %Y")
+                    
+                    date_mapping[date_str] = parsed_date
+                except:
+                    continue
+            
+            if date_mapping:
+                # Sort dates to get the most recent training
+                sorted_dates = sorted(date_mapping.items(), key=lambda x: x[1], reverse=True)
+                
+                # Get participants for latest training (2 * number of victories)
+                latest_training_date = sorted_dates[0][0]
+                latest_victories = df_training[latest_training_date].sum()
+                training_participants = int(latest_victories * 2) if pd.notna(latest_victories) else 0
+                
+                # Calculate delta compared to previous training
+                if len(sorted_dates) > 1:
+                    previous_training_date = sorted_dates[1][0]
+                    previous_victories = df_training[previous_training_date].sum()
+                    previous_participants = int(previous_victories * 2) if pd.notna(previous_victories) else 0
+                    
+                    training_delta = training_participants - previous_participants
+                    if training_delta > 0:
+                        training_delta_text = f"+ {training_delta}"
+                    elif training_delta < 0:
+                        training_delta_text = f"{training_delta}"
+                    else:
+                        training_delta_text = "±0"
+                else:
+                    training_delta_text = "Erstes Training"
+        
+    except Exception as e:
+        # Fallback to default values if CSV can't be loaded
+        training_participants = 0
+        training_delta_text = "Keine Daten"
+    
     # Quick stats overview
     col1, col2, col3, col4 = st.columns(4)
     
@@ -137,9 +208,9 @@ def show():
     
     with col3:
         st.metric(
-            label="📊 Trainingsquote",
-            value="87%",
-            delta="+ 5%"
+            label="👥 Letztes Training",
+            value=f"{training_participants} Teilnehmer",
+            delta=training_delta_text
         )
     
     with col4:
