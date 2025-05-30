@@ -349,9 +349,9 @@ def show():
         # Get API key from Streamlit secrets
         try:
             # TEMPORÄR ZUM TESTEN: API Key hier eintragen
-            api_key = "bd29dad094220635ed7c50cbb1e3061c"
+            #api_key = "bd29dad094220635ed7c50cbb1e3061c"
             
-           # api_key = st.secrets["OPENWEATHER_API_KEY"]
+            api_key = st.secrets["OPENWEATHER_API_KEY"]
             weather_data = get_weather_data("Buchholz", api_key)
             
             if weather_data:

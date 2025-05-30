@@ -120,7 +120,7 @@ def show():
         st.metric("📈 Ø Strafe", f"€{durchschnitt:.2f}")
     
     # Tabs for detailed analysis
-    tab1, tab2, tab3, tab4 = st.tabs(["📋 Strafen-Liste", "📊 Statistiken", "➕ Neue Strafe", "🏆 Esel-Historie"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["📋 Strafen-Liste", "📊 Statistiken", "➕ Neue Strafe", "🏆 Esel-Historie", "📜 Regelwerk"])
     
     with tab1:
         st.subheader("📋 Alle Strafen")
@@ -359,4 +359,90 @@ def show():
             )
             st.plotly_chart(fig4, use_container_width=True)
         else:
-            st.info("Noch keine Esel-Historie vorhanden!") 
+            st.info("Noch keine Esel-Historie vorhanden!")
+    
+    with tab5:
+        st.subheader("📜 Regelwerk & Kataloge")
+        
+        # Sub-tabs for Biersatzung and Strafenkatalog
+        regelwerk_tab1, regelwerk_tab2 = st.tabs(["🍺 Biersatzung", "📊 Strafenkatalog"])
+        
+        with regelwerk_tab1:
+            st.subheader("🍺 Biersatzung")
+            
+            # Load Biersatzung from file
+            try:
+                with open("Biersatzung.txt", "r", encoding="utf-8") as f:
+                    biersatzung_content = f.read()
+                
+                # Display content in formatted way
+                st.markdown("---")
+                st.markdown(biersatzung_content)
+                
+            except FileNotFoundError:
+                st.error("❌ Biersatzung.txt nicht gefunden!")
+                st.info("Bitte stellen Sie sicher, dass die Datei 'Biersatzung.txt' im Hauptverzeichnis liegt.")
+            except Exception as e:
+                st.error(f"❌ Fehler beim Laden der Biersatzung: {str(e)}")
+        
+        with regelwerk_tab2:
+            st.subheader("📊 Strafenkatalog")
+            
+            # Load Strafenkatalog from Excel file
+            try:
+                df_strafenkatalog = pd.read_excel("Strafenkatalog VB 24-25.xlsx")
+                
+                st.markdown("**Aktueller Strafenkatalog Saison 2024/25:**")
+                st.dataframe(df_strafenkatalog, use_container_width=True, hide_index=True)
+                
+                # Download button for Excel file
+                with open("Strafenkatalog VB 24-25.xlsx", "rb") as file:
+                    st.download_button(
+                        label="📁 Strafenkatalog herunterladen",
+                        data=file.read(),
+                        file_name="Strafenkatalog_VB_24-25.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
+                
+            except FileNotFoundError:
+                st.error("❌ Strafenkatalog VB 24-25.xlsx nicht gefunden!")
+                st.info("Bitte stellen Sie sicher, dass die Datei 'Strafenkatalog VB 24-25.xlsx' im Hauptverzeichnis liegt.")
+            except Exception as e:
+                st.error(f"❌ Fehler beim Laden des Strafenkatalogs: {str(e)}")
+                
+                # Fallback: Show basic penalty structure
+                st.markdown("---")
+                st.markdown("**Basis-Strafenkatalog:**")
+                
+                basis_strafen = {
+                    "Straftat": [
+                        "Zu spät zum Training",
+                        "Zu spät zum Spiel", 
+                        "Handy im Training",
+                        "Vergessene Ausrüstung",
+                        "Unsportliches Verhalten",
+                        "Esel der Woche (2x in Folge)"
+                    ],
+                    "Betrag": ["€10.00", "€25.00", "€5.00", "€15.00", "€50.00", "1 Kiste Bier"],
+                    "Beschreibung": [
+                        "Verspätung zum Training",
+                        "Verspätung zum Pflichtspiel",
+                        "Handy-Nutzung während des Trainings",
+                        "Vergessene Schuhe, Trikot etc.",
+                        "Unsportliches Verhalten gegenüber Mitspielern/Gegnern",
+                        "Zweimal hintereinander Esel der Woche"
+                    ]
+                }
+                
+                df_basis = pd.DataFrame(basis_strafen)
+                st.dataframe(df_basis, use_container_width=True, hide_index=True)
+        
+        # Additional info
+        st.markdown("---")
+        st.info("""
+        **📋 Wichtige Hinweise:**
+        - Alle Strafen werden dem Mannschaftsrat gemeldet
+        - Bierstrafen sind separate Verpflichtungen 
+        - Bei Unstimmigkeiten entscheidet der Mannschaftsrat
+        - Strafen müssen bis zum nächsten Spiel beglichen werden
+        """) 

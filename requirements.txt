@@ -4,4 +4,5 @@ plotly>=5.15.0
 datetime
 pillow>=10.0.0
 streamlit-option-menu>=0.3.6
-requests>=2.31.0 
+requests>=2.31.0
+openpyxl>=3.1.0 
