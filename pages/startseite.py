@@ -5,9 +5,11 @@ import plotly.express as px
 import os
 import requests
 
+@st.cache_data(ttl=600)  # Cache für 10 Minuten
 def get_weather_data(city="Buchholz", api_key=None):
     """
     Fetch weather data from OpenWeatherMap API
+    Cached for 10 minutes to avoid excessive API calls
     """
     if not api_key:
         return None
@@ -346,7 +348,10 @@ def show():
         
         # Get API key from Streamlit secrets
         try:
-            api_key = st.secrets["OPENWEATHER_API_KEY"]
+            # TEMPORÄR ZUM TESTEN: API Key hier eintragen
+            api_key = "bd29dad094220635ed7c50cbb1e3061c"
+            
+           # api_key = st.secrets["OPENWEATHER_API_KEY"]
             weather_data = get_weather_data("Buchholz", api_key)
             
             if weather_data:
@@ -372,7 +377,7 @@ def show():
             
             Für echte Wetterdaten bitte `OPENWEATHER_API_KEY` in den Streamlit Secrets hinterlegen.
             
-            Bis dahin: Wetter selbst prüfen! ��️
+            Bis dahin: Wetter selbst prüfen! ️
             """)
         
         # Training times
