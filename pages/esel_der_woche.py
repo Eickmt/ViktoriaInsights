@@ -8,23 +8,33 @@ def show():
     st.title("🤡 Esel der Woche")
     st.subheader("Strafen und der aktuelle Wochenesel")
     
-    # Sample penalty data
-    strafen_data = [
-        {"Datum": "2024-12-01", "Spieler": "Thomas Schmidt", "Strafe": "Zu spät zum Training", "Betrag": 10.00},
-        {"Datum": "2024-11-30", "Spieler": "Thomas Schmidt", "Strafe": "Handy im Training", "Betrag": 5.00},
-        {"Datum": "2024-11-29", "Spieler": "Thomas Schmidt", "Strafe": "Vergessene Schuhe", "Betrag": 15.00},
-        {"Datum": "2024-11-28", "Spieler": "Max Mustermann", "Strafe": "Zu spät zum Spiel", "Betrag": 25.00},
-        {"Datum": "2024-11-25", "Spieler": "Michael Weber", "Strafe": "Unsportliches Verhalten", "Betrag": 50.00},
-        {"Datum": "2024-11-24", "Spieler": "Stefan König", "Strafe": "Zu spät zum Training", "Betrag": 10.00},
-        {"Datum": "2024-11-22", "Spieler": "Andreas Müller", "Strafe": "Handy im Training", "Betrag": 5.00},
-        {"Datum": "2024-11-20", "Spieler": "Thomas Schmidt", "Strafe": "Vergessene Ausrüstung", "Betrag": 15.00},
-        {"Datum": "2024-11-18", "Spieler": "Christian Bauer", "Strafe": "Zu spät zum Training", "Betrag": 10.00},
-        {"Datum": "2024-11-15", "Spieler": "Max Mustermann", "Strafe": "Handy im Training", "Betrag": 5.00},
-    ]
-    
-    df_strafen = pd.DataFrame(strafen_data)
-    df_strafen['Datum'] = pd.to_datetime(df_strafen['Datum'])
-    df_strafen = df_strafen.sort_values('Datum', ascending=False)
+    # Load real penalty data from CSV
+    try:
+        df_strafen = pd.read_csv("VB_Strafen.csv", sep=";", encoding="utf-8")
+        df_strafen['Datum'] = pd.to_datetime(df_strafen['Datum'], format='%d.%m.%Y')
+        df_strafen = df_strafen.sort_values('Datum', ascending=False)
+    except FileNotFoundError:
+        # Create sample data if file doesn't exist
+        strafen_data = [
+            {"Datum": "2024-12-01", "Spieler": "Thomas Schmidt", "Strafe": "Verspätung Training/Spiel (auf dem Platz) - ab 5 Min.", "Betrag": 5.00, "Zusatzinfo": ""},
+            {"Datum": "2024-11-30", "Spieler": "Luca Motuzzi", "Strafe": "Handynutzung nach der Besprechung", "Betrag": 5.00, "Zusatzinfo": ""},
+            {"Datum": "2024-11-29", "Spieler": "Ben", "Strafe": "Beini in der Ecke", "Betrag": 1.00, "Zusatzinfo": ""},
+            {"Datum": "2024-11-28", "Spieler": "Max Mustermann", "Strafe": "Verspätung Training/Spiel (auf dem Platz) - ab 30 Min.", "Betrag": 15.00, "Zusatzinfo": ""},
+            {"Datum": "2024-11-25", "Spieler": "Michael Weber", "Strafe": "Rote Karte (Alles außer Foulspiel)", "Betrag": 50.00, "Zusatzinfo": "Schiedsrichterbeleidigung"},
+        ]
+        df_strafen = pd.DataFrame(strafen_data)
+        df_strafen['Datum'] = pd.to_datetime(df_strafen['Datum'])
+        df_strafen = df_strafen.sort_values('Datum', ascending=False)
+        
+        # Save initial sample data to CSV
+        df_strafen_save = df_strafen.copy()
+        df_strafen_save['Datum'] = df_strafen_save['Datum'].dt.strftime('%d.%m.%Y')
+        df_strafen_save.to_csv("VB_Strafen.csv", sep=";", index=False, encoding="utf-8")
+    except Exception as e:
+        st.error(f"❌ Fehler beim Laden der Strafendaten: {str(e)}")
+        # Fallback to empty DataFrame
+        df_strafen = pd.DataFrame(columns=['Datum', 'Spieler', 'Strafe', 'Betrag', 'Zusatzinfo'])
+        df_strafen['Datum'] = pd.to_datetime(df_strafen['Datum'])
     
     # Calculate current week's donkey
     heute = datetime.now()
@@ -74,9 +84,6 @@ def show():
             </p>
         </div>
         """, unsafe_allow_html=True)
-        
-        # Fun animations and effects
-        st.balloons()
         
         # Donkey "Hall of Shame" this week
         if len(esel_stats) > 1:
@@ -154,6 +161,10 @@ def show():
         display_df = filtered_df.copy()
         display_df['Datum'] = display_df['Datum'].dt.strftime("%d.%m.%Y")
         display_df['Betrag'] = display_df['Betrag'].apply(lambda x: f"€{x:.2f}")
+        
+        # Reorder columns for better display
+        column_order = ['Datum', 'Spieler', 'Strafe', 'Betrag', 'Zusatzinfo']
+        display_df = display_df[column_order]
         
         st.dataframe(display_df, use_container_width=True, hide_index=True)
         
@@ -240,66 +251,323 @@ def show():
     with tab3:
         st.subheader("➕ Neue Strafe eingeben")
         
+        # Load real player names from birthday CSV
+        try:
+            df_players = pd.read_csv("VB_Geburtstage.csv", sep=";", encoding="latin-1")
+            real_players = sorted(df_players['Name'].tolist())
+        except Exception as e:
+            # Fallback to default players if CSV can't be loaded
+            real_players = ["Thomas Schmidt", "Max Mustermann", "Michael Weber", 
+                           "Stefan König", "Andreas Müller", "Christian Bauer"]
+        
+        # Custom CSS for better form styling
+        st.markdown("""
+        <style>
+        .stSelectbox > div > div {
+            background-color: #f8f9fa !important;
+            border: 2px solid #e9ecef !important;
+            border-radius: 8px !important;
+            color: #000000 !important;
+        }
+        .stSelectbox > div > div:focus-within {
+            border-color: #0d6efd !important;
+            box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25) !important;
+        }
+        .stDateInput > div > div > input {
+            background-color: #f8f9fa !important;
+            border: 2px solid #e9ecef !important;
+            border-radius: 8px !important;
+            color: #000000 !important;
+            font-weight: 500 !important;
+        }
+        .stNumberInput > div > div > input {
+            background-color: #f8f9fa !important;
+            border: 2px solid #e9ecef !important;
+            border-radius: 8px !important;
+            color: #000000 !important;
+            font-weight: 500 !important;
+        }
+        .stTextArea > div > div > textarea {
+            background-color: #f8f9fa !important;
+            border: 2px solid #e9ecef !important;
+            border-radius: 8px !important;
+            color: #000000 !important;
+            font-weight: 500 !important;
+        }
+        .stSelectbox label, .stDateInput label, .stNumberInput label, .stTextArea label {
+            color: #000000 !important;
+            font-weight: 600 !important;
+            font-size: 1rem !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
         with st.form("add_penalty"):
             col1, col2 = st.columns(2)
             
             with col1:
-                spieler = st.selectbox("Spieler", 
-                                     ["Thomas Schmidt", "Max Mustermann", "Michael Weber", 
-                                      "Stefan König", "Andreas Müller", "Christian Bauer"])
-                strafe_typ = st.selectbox("Strafenart", 
-                                        ["Zu spät zum Training", "Zu spät zum Spiel", 
-                                         "Handy im Training", "Vergessene Ausrüstung", 
-                                         "Unsportliches Verhalten", "Sonstige"])
+                spieler = st.selectbox("👤 Spieler auswählen", 
+                                     real_players,
+                                     help="Wählen Sie den Spieler aus der Mannschaftsliste")
+                
+                # Enhanced penalty types with more options
+                strafe_typ = st.selectbox("⚖️ Strafenart", 
+                                        ["Verspätung Training/Spiel (auf dem Platz) - pro Min.",
+                                         "Verspätung Training/Spiel (auf dem Platz) - ab 5 Min.",
+                                         "Verspätung Training/Spiel (auf dem Platz) - ab 30 Min.",
+                                         "Gelbe Karte (Alles außer Foulspiel)",
+                                         "Gelb-Rote Karte (Alles außer Foulspiel)",
+                                         "Rote Karte (Alles außer Foulspiel)",
+                                         "Unentschuldigtes Fehlen beim Training",
+                                         "Unentschuldigtes Fehlen beim Spiel",
+                                         "Unentschuldigtes Fehlen nach Heimspiel (ca. 1 Stunde nach Abpfiff)",
+                                         "Abmeldung vom Training nicht persönlich bei Trainer",
+                                         "Abmeldung vom Spiel nicht persönlich bei Trainer",
+                                         "Unentschuldigtes Fehlen bei Mannschaftsabend oder Event",
+                                         "Kein Präsentationsanzug beim Spiel",
+                                         "Falsches Kleidungsstück beim Präsentationsanzug - pro Stück",
+                                         "Falsches Outfit beim Training - pro Stück",
+                                         "Rauchen in der Kabine",
+                                         "Rauchen im Trikot",
+                                         "Alkohol im Trikot",
+                                         "Handy klingelt während Besprechung",
+                                         "Handynutzung nach der Besprechung",
+                                         "Shampoo/Badelatschen etc. vergessen - pro Teil",
+                                         "Nicht Duschen (ohne triftigen Grund)",
+                                         "Gerätedienst nicht richtig erfüllt - pro Person",
+                                         "Ball über Zaun",
+                                         "Beini in der Ecke",
+                                         "20 Kontakte in der Ecke",
+                                         "18. oder 19. Kontakt in der Ecke vergeigt",
+                                         "Falscher Einwurf",
+                                         "Stange/Hürde o. anderes Trainingsutensil umwerfen",
+                                         "Vergessene Gegenstände/Kleidungsstücke - pro Teil",
+                                         "Gegentor (Spieler)",
+                                         "Geschossenes Tor (Trainer)",
+                                         "Beitrag Mannschaftskasse - pro Monat",
+                                         "Kiste Bier vergessen",
+                                         "Sonstige"],
+                                        help="Wählen Sie die Art der Strafe aus dem kompletten Katalog")
             
             with col2:
-                datum = st.date_input("Datum", value=datetime.now().date())
+                datum = st.date_input("📅 Datum", value=datetime.now().date(),
+                                    help="Datum an dem die Strafe aufgetreten ist")
+                
+                # Predefined penalty amounts from the catalog
+                strafe_beträge = {
+                    "Verspätung Training/Spiel (auf dem Platz) - pro Min.": 1.00,
+                    "Verspätung Training/Spiel (auf dem Platz) - ab 5 Min.": 5.00,
+                    "Verspätung Training/Spiel (auf dem Platz) - ab 30 Min.": 15.00,
+                    "Gelbe Karte (Alles außer Foulspiel)": 15.00,
+                    "Gelb-Rote Karte (Alles außer Foulspiel)": 30.00,
+                    "Rote Karte (Alles außer Foulspiel)": 50.00,
+                    "Unentschuldigtes Fehlen beim Training": 25.00,
+                    "Unentschuldigtes Fehlen beim Spiel": 100.00,
+                    "Unentschuldigtes Fehlen nach Heimspiel (ca. 1 Stunde nach Abpfiff)": 5.00,
+                    "Abmeldung vom Training nicht persönlich bei Trainer": 5.00,
+                    "Abmeldung vom Spiel nicht persönlich bei Trainer": 10.00,
+                    "Unentschuldigtes Fehlen bei Mannschaftsabend oder Event": 10.00,
+                    "Kein Präsentationsanzug beim Spiel": 10.00,
+                    "Falsches Kleidungsstück beim Präsentationsanzug - pro Stück": 3.00,
+                    "Falsches Outfit beim Training - pro Stück": 1.00,
+                    "Rauchen in der Kabine": 25.00,
+                    "Rauchen im Trikot": 25.00,
+                    "Alkohol im Trikot": 25.00,
+                    "Handy klingelt während Besprechung": 15.00,
+                    "Handynutzung nach der Besprechung": 5.00,
+                    "Shampoo/Badelatschen etc. vergessen - pro Teil": 1.00,
+                    "Nicht Duschen (ohne triftigen Grund)": 5.00,
+                    "Gerätedienst nicht richtig erfüllt - pro Person": 1.00,
+                    "Ball über Zaun": 1.00,
+                    "Beini in der Ecke": 1.00,
+                    "20 Kontakte in der Ecke": 1.00,
+                    "18. oder 19. Kontakt in der Ecke vergeigt": 0.50,
+                    "Falscher Einwurf": 0.50,
+                    "Stange/Hürde o. anderes Trainingsutensil umwerfen": 1.00,
+                    "Vergessene Gegenstände/Kleidungsstücke - pro Teil": 1.00,
+                    "Gegentor (Spieler)": 0.50,
+                    "Geschossenes Tor (Trainer)": 1.00,
+                    "Beitrag Mannschaftskasse - pro Monat": 5.00,
+                    "Kiste Bier vergessen": 15.00
+                }
+                
                 if strafe_typ == "Sonstige":
-                    betrag = st.number_input("Betrag (€)", min_value=0.01, step=0.01)
+                    betrag = st.number_input("💰 Betrag (€)", min_value=0.01, step=0.01,
+                                           help="Geben Sie den Strafbetrag ein")
                 else:
-                    # Predefined penalty amounts
-                    strafe_beträge = {
-                        "Zu spät zum Training": 10.00,
-                        "Zu spät zum Spiel": 25.00,
-                        "Handy im Training": 5.00,
-                        "Vergessene Ausrüstung": 15.00,
-                        "Unsportliches Verhalten": 50.00
-                    }
-                    betrag = st.number_input("Betrag (€)", 
-                                           value=strafe_beträge.get(strafe_typ, 10.00),
-                                           step=0.01)
+                    default_betrag = strafe_beträge.get(strafe_typ, 10.00)
+                    betrag = st.number_input("💰 Betrag (€)", 
+                                           value=default_betrag,
+                                           step=0.01,
+                                           help=f"Standardbetrag aus Katalog: €{default_betrag:.2f}")
             
-            zusatz_info = st.text_area("Zusätzliche Informationen (optional)")
+            zusatz_info = st.text_area("📝 Zusätzliche Informationen (optional)",
+                                     help="Weitere Details zur Strafe (z.B. Umstände, Minuten bei Verspätung)")
             
-            submitted = st.form_submit_button("Strafe hinzufügen")
+            submitted = st.form_submit_button("💾 Strafe hinzufügen", type="primary", use_container_width=True)
             
             if submitted:
-                st.success(f"✅ Strafe für {spieler} wurde hinzugefügt!")
-                st.info(f"📋 {strafe_typ} - €{betrag:.2f}")
+                st.success(f"✅ Strafe für **{spieler}** wurde hinzugefügt!")
                 
-                # Check if this makes them the new donkey
-                # (In real app, this would update the database)
-                st.warning(f"⚠️ {spieler} ist jetzt ein heißer Kandidat für den Esel der Woche!")
-                st.info("💡 In einer echten App würde diese Strafe in der Datenbank gespeichert.")
+                # Enhanced info display
+                info_card = f"""
+                <div style='
+                    background: linear-gradient(135deg, #17a2b8, #138496);
+                    padding: 1rem;
+                    border-radius: 8px;
+                    color: white;
+                    margin: 1rem 0;
+                    border-left: 4px solid #ffffff;
+                '>
+                    <div style='display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;'>
+                        <span style='font-size: 1.2rem;'>📋</span>
+                        <strong>Strafendetails</strong>
+                    </div>
+                    <p style='margin: 0.2rem 0;'><strong>Spieler:</strong> {spieler}</p>
+                    <p style='margin: 0.2rem 0;'><strong>Strafenart:</strong> {strafe_typ}</p>
+                    <p style='margin: 0.2rem 0;'><strong>Betrag:</strong> €{betrag:.2f}</p>
+                    <p style='margin: 0.2rem 0;'><strong>Datum:</strong> {datum.strftime('%d.%m.%Y')}</p>
+                    {f"<p style='margin: 0.2rem 0;'><strong>Zusatzinfo:</strong> {zusatz_info}</p>" if zusatz_info else ""}
+                </div>
+                """
+                st.markdown(info_card, unsafe_allow_html=True)
+                
+                # Save penalty to CSV
+                try:
+                    # Create new penalty entry
+                    new_penalty = {
+                        'Datum': datum.strftime('%d.%m.%Y'),
+                        'Spieler': spieler,
+                        'Strafe': strafe_typ,
+                        'Betrag': betrag,
+                        'Zusatzinfo': zusatz_info if zusatz_info else ''
+                    }
+                    
+                    # Try to load existing CSV
+                    try:
+                        df_existing = pd.read_csv("VB_Strafen.csv", sep=";", encoding="utf-8")
+                    except FileNotFoundError:
+                        # Create new DataFrame if file doesn't exist
+                        df_existing = pd.DataFrame(columns=['Datum', 'Spieler', 'Strafe', 'Betrag', 'Zusatzinfo'])
+                    
+                    # Add new penalty
+                    df_new = pd.concat([df_existing, pd.DataFrame([new_penalty])], ignore_index=True)
+                    
+                    # Save to CSV
+                    df_new.to_csv("VB_Strafen.csv", sep=";", index=False, encoding="utf-8")
+                    
+                    st.success("💾 Strafe wurde in der Datenbank gespeichert!")
+                    
+                    # Refresh the page to show updated data
+                    st.info("🔄 Seite wird aktualisiert...")
+                    st.rerun()
+                    
+                except Exception as e:
+                    st.error(f"❌ Fehler beim Speichern: {str(e)}")
+                    st.info("💡 Die Strafe konnte nicht gespeichert werden, bitte versuchen Sie es erneut.")
         
         st.markdown("---")
         
         # Quick penalty buttons
         st.subheader("⚡ Schnell-Strafen")
+        st.write("Spieler und Datum auswählen, dann Schnell-Strafe anklicken:")
         
+        # Player and date selection for quick penalties
+        col_select1, col_select2 = st.columns(2)
+        
+        with col_select1:
+            quick_spieler = st.selectbox("👤 Spieler für Schnell-Strafe", 
+                                       real_players,
+                                       key="quick_penalty_player",
+                                       help="Spieler für Schnell-Strafen auswählen")
+        
+        with col_select2:
+            quick_datum = st.date_input("📅 Datum für Schnell-Strafe", 
+                                      value=datetime.now().date(),
+                                      key="quick_penalty_date",
+                                      help="Datum für Schnell-Strafen auswählen")
+        
+        st.markdown("---")
+        
+        # Function to add quick penalty
+        def add_quick_penalty(spieler, datum, strafe_typ, betrag):
+            try:
+                # Create new penalty entry
+                new_penalty = {
+                    'Datum': datum.strftime('%d.%m.%Y'),
+                    'Spieler': spieler,
+                    'Strafe': strafe_typ,
+                    'Betrag': betrag,
+                    'Zusatzinfo': 'Schnell-Strafe'
+                }
+                
+                # Try to load existing CSV
+                try:
+                    df_existing = pd.read_csv("VB_Strafen.csv", sep=";", encoding="utf-8")
+                except FileNotFoundError:
+                    # Create new DataFrame if file doesn't exist
+                    df_existing = pd.DataFrame(columns=['Datum', 'Spieler', 'Strafe', 'Betrag', 'Zusatzinfo'])
+                
+                # Add new penalty
+                df_new = pd.concat([df_existing, pd.DataFrame([new_penalty])], ignore_index=True)
+                
+                # Save to CSV
+                df_new.to_csv("VB_Strafen.csv", sep=";", index=False, encoding="utf-8")
+                
+                st.success(f"✅ Schnell-Strafe für **{spieler}** hinzugefügt: {strafe_typ} (€{betrag:.2f})")
+                st.info("🔄 Seite wird aktualisiert...")
+                st.rerun()
+                
+            except Exception as e:
+                st.error(f"❌ Fehler beim Speichern: {str(e)}")
+        
+        # First row - Common penalties
+        st.markdown("#### 🚨 Häufige Strafen")
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            if st.button("⏰ Zu spät (€10)", use_container_width=True):
-                st.info("Schnelle 'Zu spät' Strafe würde hinzugefügt")
+            if st.button("⏰ Verspätung ab 5 Min. (€5)", use_container_width=True, key="quick_lateness_5"):
+                add_quick_penalty(quick_spieler, quick_datum, "Verspätung Training/Spiel (auf dem Platz) - ab 5 Min.", 5.0)
         
         with col2:
-            if st.button("📱 Handy (€5)", use_container_width=True):
-                st.info("Handy-Strafe würde hinzugefügt")
+            if st.button("📱 Handy in Besprechung (€15)", use_container_width=True, key="quick_phone_meeting"):
+                add_quick_penalty(quick_spieler, quick_datum, "Handy klingelt während Besprechung", 15.0)
         
         with col3:
-            if st.button("👕 Ausrüstung (€15)", use_container_width=True):
-                st.info("Ausrüstungs-Strafe würde hinzugefügt")
+            if st.button("🍺 Kiste Bier vergessen (€15)", use_container_width=True, key="quick_beer_forgot"):
+                add_quick_penalty(quick_spieler, quick_datum, "Kiste Bier vergessen", 15.0)
+        
+        # Second row - Training-specific penalties
+        st.markdown("#### 🏃‍♂️ Training-Übungen")
+        col4, col5, col6 = st.columns(3)
+        
+        with col4:
+            if st.button("🦵 Beini in der Ecke (€1)", use_container_width=True, key="quick_beini"):
+                add_quick_penalty(quick_spieler, quick_datum, "Beini in der Ecke", 1.0)
+        
+        with col5:
+            if st.button("⚽ 20 Kontakte in der Ecke (€1)", use_container_width=True, key="quick_20_contacts"):
+                add_quick_penalty(quick_spieler, quick_datum, "20 Kontakte in der Ecke", 1.0)
+        
+        with col6:
+            if st.button("😵 18./19. Kontakt vergeigt (€0.50)", use_container_width=True, key="quick_contact_fail"):
+                add_quick_penalty(quick_spieler, quick_datum, "18. oder 19. Kontakt in der Ecke vergeigt", 0.5)
+        
+        # Third row - Minor penalties
+        st.markdown("#### 💡 Kleine Strafen")
+        col7, col8, col9 = st.columns(3)
+        
+        with col7:
+            if st.button("⚽ Ball über Zaun (€1)", use_container_width=True, key="quick_ball_over_fence"):
+                add_quick_penalty(quick_spieler, quick_datum, "Ball über Zaun", 1.0)
+        
+        with col8:
+            if st.button("❌ Falscher Einwurf (€0.50)", use_container_width=True, key="quick_wrong_throw"):
+                add_quick_penalty(quick_spieler, quick_datum, "Falscher Einwurf", 0.5)
+        
+        with col9:
+            if st.button("🏃‍♂️ Stange umgeworfen (€1)", use_container_width=True, key="quick_pole_down"):
+                add_quick_penalty(quick_spieler, quick_datum, "Stange/Hürde o. anderes Trainingsutensil umwerfen", 1.0)
     
     with tab4:
         st.subheader("🏆 Esel der Woche - Historie")
@@ -375,9 +643,105 @@ def show():
                 with open("Biersatzung.txt", "r", encoding="utf-8") as f:
                     biersatzung_content = f.read()
                 
-                # Display content in formatted way
+                # Parse and format the beer regulations
+                lines = biersatzung_content.split('\n')
+                
+                st.markdown("### 🍺 Vereins-Biersatzung")
+                
+                # Extract introduction and rules
+                introduction = []
+                rules = []
+                current_section = "intro"
+                
+                for line in lines:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    
+                    # Check if this is a numbered rule
+                    if line[0].isdigit() and '.' in line[:5]:
+                        current_section = "rules"
+                        rules.append(line)
+                    elif current_section == "intro":
+                        introduction.append(line)
+                    elif "Wenn jemand" in line or "€" in line:
+                        # Additional important info
+                        introduction.append(line)
+                
+                # Display introduction
+                if introduction:
+                    st.markdown("#### 📜 Grundlagen:")
+                    for intro_line in introduction[:3]:  # Show first few lines
+                        if intro_line and not intro_line.startswith("Im Folgenden"):
+                            st.info(f"📋 {intro_line}")
+                
+                # Display rules in a more attractive format
+                if rules:
+                    st.markdown("#### 🎯 Kisten-Pflicht bei folgenden Anlässen:")
+                    
+                    # Create cards for rules
+                    cols_per_row = 2
+                    for i in range(0, len(rules), cols_per_row):
+                        cols = st.columns(cols_per_row)
+                        
+                        for j, col in enumerate(cols):
+                            if i + j < len(rules):
+                                rule = rules[i + j]
+                                
+                                # Extract rule number and description
+                                parts = rule.split('.', 1)
+                                if len(parts) == 2:
+                                    rule_num = parts[0].strip()
+                                    rule_text = parts[1].strip()
+                                    
+                                    # Color coding for different types of rules
+                                    if any(keyword in rule_text.lower() for keyword in ["geburtstag", "heirat", "vater"]):
+                                        color = "#2ed573"  # Green for celebrations
+                                        icon = "🎉"
+                                    elif any(keyword in rule_text.lower() for keyword in ["strafe", "esel", "falsche"]):
+                                        color = "#ff4757"  # Red for penalties
+                                        icon = "⚠️"
+                                    elif any(keyword in rule_text.lower() for keyword in ["tor", "hattrick", "kapitän"]):
+                                        color = "#ffa502"  # Orange for sports achievements
+                                        icon = "⚽"
+                                    else:
+                                        color = "#3742fa"  # Blue for regular rules
+                                        icon = "🍺"
+                                    
+                                    with col:
+                                        st.markdown(f"""
+                                        <div style='
+                                            background: linear-gradient(135deg, {color}33, {color}22);
+                                            border-left: 4px solid {color};
+                                            padding: 1rem;
+                                            border-radius: 8px;
+                                            margin: 0.5rem 0;
+                                            box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+                                            border: 1px solid {color}44;
+                                        '>
+                                            <div style='display: flex; align-items: center; margin-bottom: 0.5rem;'>
+                                                <span style='font-size: 1.2rem; margin-right: 0.5rem;'>{icon}</span>
+                                                <strong style='color: #ffffff; font-size: 1.1rem; font-weight: 800; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);'>Regel {rule_num}</strong>
+                                            </div>
+                                            <p style='margin: 0; color: #ffffff; font-size: 0.9rem; line-height: 1.4; font-weight: 600; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);'>
+                                                {rule_text}
+                                            </p>
+                                        </div>
+                                        """, unsafe_allow_html=True)
+                
+                # Important notes section
                 st.markdown("---")
-                st.markdown(biersatzung_content)
+                st.markdown("#### ⚠️ Wichtige Hinweise:")
+                
+                important_notes = [
+                    "🍺 Ausschließlich König Pilsener (24 x 0,33l)",
+                    "⏰ Bei Vergessen: 15€ Strafe",
+                    "🥤 Softgetränke nur nach Absprache",
+                    "🍻 Stubbis nur in besonderen Einzelfällen"
+                ]
+                
+                for note in important_notes:
+                    st.info(note)
                 
             except FileNotFoundError:
                 st.error("❌ Biersatzung.txt nicht gefunden!")
@@ -388,54 +752,141 @@ def show():
         with regelwerk_tab2:
             st.subheader("📊 Strafenkatalog")
             
-            # Load Strafenkatalog from Excel file
-            try:
-                df_strafenkatalog = pd.read_excel("Strafenkatalog VB 24-25.xlsx")
+            # Hardcoded Strafenkatalog data
+            st.markdown("### 🚨 Aktueller Strafenkatalog Saison 2024/25")
+            
+            # Define penalty catalog directly in code
+            penalty_catalog = [
+                {"Beschreibung": "Verspätung Training/Spiel (auf dem Platz) - pro Min.", "Betrag": "1,00 €"},
+                {"Beschreibung": "Verspätung Training/Spiel (auf dem Platz) - ab 5 Min.", "Betrag": "5,00 €"},
+                {"Beschreibung": "Verspätung Training/Spiel (auf dem Platz) - ab 30 Min.", "Betrag": "15,00 €"},
+                {"Beschreibung": "Gelbe Karte (Alles außer Foulspiel)", "Betrag": "15,00 €"},
+                {"Beschreibung": "Gelb-Rote Karte (Alles außer Foulspiel)", "Betrag": "30,00 €"},
+                {"Beschreibung": "Rote Karte (Alles außer Foulspiel)", "Betrag": "50,00 €"},
+                {"Beschreibung": "Unentschuldigtes Fehlen beim Training", "Betrag": "25,00 €"},
+                {"Beschreibung": "Unentschuldigtes Fehlen beim Spiel", "Betrag": "100,00 €"},
+                {"Beschreibung": "Unentschuldigtes Fehlen nach Heimspiel (ca. 1 Stunde nach Abpfiff)*", "Betrag": "5,00 €"},
+                {"Beschreibung": "Abmeldung vom Training nicht persönlich bei Trainer", "Betrag": "5,00 €"},
+                {"Beschreibung": "Abmeldung vom Spiel nicht persönlich bei Trainer", "Betrag": "10,00 €"},
+                {"Beschreibung": "Unentschuldigtes Fehlen bei Mannschaftsabend oder Event", "Betrag": "10,00 €"},
+                {"Beschreibung": "Kein Präsentationsanzug beim Spiel", "Betrag": "10,00 €"},
+                {"Beschreibung": "Falsches Kleidungsstück beim Präsentationsanzug - pro Stück", "Betrag": "3,00 €"},
+                {"Beschreibung": "Falsches Outfit beim Training - pro Stück", "Betrag": "1,00 €"},
+                {"Beschreibung": "Rauchen in der Kabine", "Betrag": "25,00 €"},
+                {"Beschreibung": "Rauchen im Trikot", "Betrag": "25,00 €"},
+                {"Beschreibung": "Alkohol im Trikot", "Betrag": "25,00 €"},
+                {"Beschreibung": "Handy klingelt während Besprechung", "Betrag": "15,00 €"},
+                {"Beschreibung": "Handynutzung nach der Besprechung", "Betrag": "5,00 €"},
+                {"Beschreibung": "Shampoo/Badelatschen etc. vergessen - pro Teil", "Betrag": "1,00 €"},
+                {"Beschreibung": "Nicht Duschen (ohne triftigen Grund)", "Betrag": "5,00 €"},
+                {"Beschreibung": "Gerätedienst nicht richtig erfüllt - pro Person", "Betrag": "1,00 €"},
+                {"Beschreibung": "Ball über Zaun", "Betrag": "1,00 €"},
+                {"Beschreibung": "Beini in der Ecke", "Betrag": "1,00 €"},
+                {"Beschreibung": "20 Kontakte in der Ecke", "Betrag": "1,00 €"},
+                {"Beschreibung": "18. oder 19. Kontakt in der Ecke vergeigt", "Betrag": "0,50 €"},
+                {"Beschreibung": "Falscher Einwurf", "Betrag": "0,50 €"},
+                {"Beschreibung": "Stange/Hürde o. anderes Trainingsutensil umwerfen", "Betrag": "1,00 €"},
+                {"Beschreibung": "Vergessene Gegenstände/Kleidungsstücke - pro Teil", "Betrag": "1,00 €"},
+                {"Beschreibung": "Gegentor (Spieler)", "Betrag": "0,50 €"},
+                {"Beschreibung": "Geschossenes Tor (Trainer)", "Betrag": "1,00 €"},
+                {"Beschreibung": "Beitrag Mannschaftskasse - pro Monat", "Betrag": "5,00 €"},
+                {"Beschreibung": "Kiste Bier vergessen", "Betrag": "15,00 €"}
+            ]
+            
+            # Display formatted penalties
+            st.markdown("#### 💰 Strafen im Überblick:")
+            
+            # Display as cards
+            cols_per_row = 2
+            for i in range(0, len(penalty_catalog), cols_per_row):
+                cols = st.columns(cols_per_row)
                 
-                st.markdown("**Aktueller Strafenkatalog Saison 2024/25:**")
-                st.dataframe(df_strafenkatalog, use_container_width=True, hide_index=True)
-                
-                # Download button for Excel file
-                with open("Strafenkatalog VB 24-25.xlsx", "rb") as file:
-                    st.download_button(
-                        label="📁 Strafenkatalog herunterladen",
-                        data=file.read(),
-                        file_name="Strafenkatalog_VB_24-25.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    )
-                
-            except FileNotFoundError:
-                st.error("❌ Strafenkatalog VB 24-25.xlsx nicht gefunden!")
-                st.info("Bitte stellen Sie sicher, dass die Datei 'Strafenkatalog VB 24-25.xlsx' im Hauptverzeichnis liegt.")
-            except Exception as e:
-                st.error(f"❌ Fehler beim Laden des Strafenkatalogs: {str(e)}")
-                
-                # Fallback: Show basic penalty structure
-                st.markdown("---")
-                st.markdown("**Basis-Strafenkatalog:**")
-                
-                basis_strafen = {
-                    "Straftat": [
-                        "Zu spät zum Training",
-                        "Zu spät zum Spiel", 
-                        "Handy im Training",
-                        "Vergessene Ausrüstung",
-                        "Unsportliches Verhalten",
-                        "Esel der Woche (2x in Folge)"
-                    ],
-                    "Betrag": ["€10.00", "€25.00", "€5.00", "€15.00", "€50.00", "1 Kiste Bier"],
-                    "Beschreibung": [
-                        "Verspätung zum Training",
-                        "Verspätung zum Pflichtspiel",
-                        "Handy-Nutzung während des Trainings",
-                        "Vergessene Schuhe, Trikot etc.",
-                        "Unsportliches Verhalten gegenüber Mitspielern/Gegnern",
-                        "Zweimal hintereinander Esel der Woche"
-                    ]
-                }
-                
-                df_basis = pd.DataFrame(basis_strafen)
-                st.dataframe(df_basis, use_container_width=True, hide_index=True)
+                for j, col in enumerate(cols):
+                    if i + j < len(penalty_catalog):
+                        penalty = penalty_catalog[i + j]
+                        
+                        # Color coding based on penalty amount
+                        amount_str = penalty["Betrag"].replace("€", "").replace(",", ".")
+                        try:
+                            amount = float(amount_str)
+                            if amount >= 50:
+                                color = "#ff4757"  # Red for high penalties
+                                icon = "🚨"
+                            elif amount >= 20:
+                                color = "#ffa502"  # Orange for medium penalties
+                                icon = "⚠️"
+                            elif amount >= 10:
+                                color = "#ffda79"  # Yellow for low-medium penalties
+                                icon = "💰"
+                            elif amount >= 5:
+                                color = "#7bed9f"  # Light green for medium-low penalties
+                                icon = "💡"
+                            else:
+                                color = "#70a1ff"  # Blue for low penalties
+                                icon = "📝"
+                        except:
+                            color = "#ddd"
+                            icon = "📋"
+                        
+                        with col:
+                            st.markdown(f"""
+                            <div style='
+                                background: linear-gradient(135deg, {color}33, {color}22);
+                                border-left: 4px solid {color};
+                                padding: 1rem;
+                                border-radius: 8px;
+                                margin: 0.5rem 0;
+                                box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+                                border: 1px solid {color}44;
+                            '>
+                                <div style='display: flex; align-items: center; margin-bottom: 0.5rem;'>
+                                    <span style='font-size: 1.2rem; margin-right: 0.5rem;'>{icon}</span>
+                                    <strong style='color: #ffffff; font-size: 1.1rem; font-weight: 800; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);'>{penalty["Betrag"]}</strong>
+                                </div>
+                                <p style='margin: 0; color: #ffffff; font-size: 0.9rem; line-height: 1.4; font-weight: 600; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);'>
+                                    {penalty["Beschreibung"]}
+                                </p>
+                            </div>
+                            """, unsafe_allow_html=True)
+            
+            # Important information sections
+            st.markdown("---")
+            st.markdown("#### 📋 Wichtige Regelungen:")
+            
+            # Important notes from the catalog
+            important_notes = [
+                "⚖️ Strafen bzgl. Karten gelten auch für die Trainer",
+                "⏰ Zahlungsfrist: 4 Wochen ab Bekanntgabe durch Kassenwart",
+                "💰 Nach Fristablauf: 5,00€ monatliche Verzugszinsen",
+                "📞 Verspätungen können durch rechtzeitige Mitteilung gelindert werden",
+                "👥 Entscheidungen obliegen Kassenwart, Mannschaftsrat und Trainern",
+                "🍺 Strafen bzgl. Kisten siehe Biersatzung",
+                "🏠 Nach Heimspiel: 1 Stunde Anwesenheit am Platz für Gespräche"
+            ]
+            
+            for note in important_notes:
+                st.info(note)
+            
+            # Outfit requirements
+            st.markdown("---")
+            st.markdown("#### 👕 Outfit-Regelungen:")
+            
+            outfit_info = """
+            **Training:**
+            - Shirt/Pulli/Regenjacke: grün
+            - Hose: schwarz  
+            - Stutzen/Socken: grün, schwarz oder weiß
+            
+            **Spiel:**
+            - Präsentationsanzug komplett
+            - Bei Verletzung: Präsentationsjacke/-shirt
+            """
+            
+            st.markdown(outfit_info)
+            
+            # Beer penalty reference
+            st.markdown("---")
+            st.warning("🍺 **Bierstrafen:** Separate Verpflichtungen gemäß Biersatzung (siehe Biersatzung-Tab)")
         
         # Additional info
         st.markdown("---")

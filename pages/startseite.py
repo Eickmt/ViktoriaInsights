@@ -238,6 +238,51 @@ def show():
         training_participants = 0
         training_delta_text = "Keine Daten"
     
+    # Calculate current donkey of the week based on penalties
+    current_donkey = "Niemand"
+    donkey_penalty_amount = 0
+    donkey_penalty_count = 0
+    
+    try:
+        # Load penalty data
+        df_penalties = pd.read_csv("VB_Strafen.csv", sep=";", encoding="utf-8")
+        df_penalties['Datum'] = pd.to_datetime(df_penalties['Datum'], format='%d.%m.%Y')
+        
+        # Calculate last week's period (Monday to Sunday)
+        today = datetime.now()
+        days_since_monday = today.weekday()  # Monday = 0, Sunday = 6
+        
+        # Last week's Monday
+        last_week_monday = today - timedelta(days=days_since_monday + 7)
+        # Last week's Sunday  
+        last_week_sunday = last_week_monday + timedelta(days=6)
+        
+        # Filter penalties from last week
+        last_week_penalties = df_penalties[
+            (df_penalties['Datum'] >= last_week_monday) & 
+            (df_penalties['Datum'] <= last_week_sunday)
+        ]
+        
+        if len(last_week_penalties) > 0:
+            # Calculate penalty stats per player for last week
+            penalty_stats = last_week_penalties.groupby('Spieler').agg({
+                'Betrag': ['sum', 'count']
+            }).round(2)
+            penalty_stats.columns = ['Gesamt_Betrag', 'Anzahl_Strafen']
+            penalty_stats = penalty_stats.reset_index().sort_values('Gesamt_Betrag', ascending=False)
+            
+            # Get the player with highest penalty amount
+            if len(penalty_stats) > 0:
+                current_donkey = penalty_stats.iloc[0]['Spieler']
+                donkey_penalty_amount = penalty_stats.iloc[0]['Gesamt_Betrag']
+                donkey_penalty_count = int(penalty_stats.iloc[0]['Anzahl_Strafen'])
+        
+    except Exception as e:
+        # Fallback if penalty data can't be loaded
+        current_donkey = "Keine Daten"
+        donkey_penalty_amount = 0
+        donkey_penalty_count = 0
+
     # Quick stats overview
     col1, col2, col3, col4 = st.columns(4)
     
@@ -270,10 +315,18 @@ def show():
         )
     
     with col4:
+        # Dynamic donkey calculation
+        if current_donkey != "Niemand" and current_donkey != "Keine Daten":
+            delta_text = f"€{donkey_penalty_amount:.2f} ({donkey_penalty_count} Strafen)"
+        elif current_donkey == "Niemand":
+            delta_text = "Letzte Woche: Alle brav! 🎉"
+        else:
+            delta_text = "Strafen-DB nicht verfügbar"
+            
         st.metric(
-            label="🤡 Aktueller Esel",
-            value="Luca Motuzzi",
-            delta="3 Strafen"
+            label="🤡 Esel der Woche",
+            value=current_donkey,
+            delta=delta_text
         )
     
     st.markdown("---")
