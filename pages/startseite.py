@@ -303,7 +303,7 @@ def show():
     with col2:
         st.metric(
             label="💰 Mannschaftskasse",
-            value="€ 1,250.50",
+            value="€ 100.00",
             delta="Stand 24.12.2024"
         )
     
