@@ -3,6 +3,60 @@ import pandas as pd
 from datetime import datetime, timedelta
 import plotly.express as px
 import os
+import requests
+
+def get_weather_data(city="Buchholz", api_key=None):
+    """
+    Fetch weather data from OpenWeatherMap API
+    """
+    if not api_key:
+        return None
+    
+    try:
+        # OpenWeatherMap API endpoint
+        url = f"http://api.openweathermap.org/data/2.5/weather"
+        params = {
+            'q': f"{city},DE",
+            'appid': api_key,
+            'units': 'metric',
+            'lang': 'de'
+        }
+        
+        response = requests.get(url, params=params, timeout=5)
+        
+        if response.status_code == 200:
+            data = response.json()
+            
+            weather_info = {
+                'temperature': round(data['main']['temp']),
+                'description': data['weather'][0]['description'].title(),
+                'humidity': data['main']['humidity'],
+                'wind_speed': round(data['wind']['speed'] * 3.6, 1),  # Convert m/s to km/h
+                'emoji': get_weather_emoji(data['weather'][0]['main'])
+            }
+            
+            return weather_info
+        else:
+            return None
+            
+    except Exception as e:
+        return None
+
+def get_weather_emoji(weather_main):
+    """
+    Get emoji based on weather condition
+    """
+    weather_emojis = {
+        'Clear': '☀️',
+        'Clouds': '☁️',
+        'Rain': '🌧️',
+        'Drizzle': '🌦️',
+        'Thunderstorm': '⛈️',
+        'Snow': '❄️',
+        'Mist': '🌫️',
+        'Fog': '🌫️'
+    }
+    return weather_emojis.get(weather_main, '🌤️')
 
 def show():
     st.title("⚽ Willkommen bei ViktoriaInsights")
@@ -216,7 +270,7 @@ def show():
     with col4:
         st.metric(
             label="🤡 Aktueller Esel",
-            value="Thomas Schmidt",
+            value="Luca Motuzzi",
             delta="3 Strafen"
         )
     
@@ -228,62 +282,107 @@ def show():
     with col_left:
         st.subheader("📈 Aktuelle Saison-Übersicht")
         
-        # Sample data for team performance
-        performance_data = {
-            'Monat': ['August', 'September', 'Oktober', 'November', 'Dezember'],
-            'Trainingsquote': [85, 88, 82, 90, 87],
-            'Spiele': [4, 5, 3, 4, 2],
-            'Siege': [3, 3, 2, 3, 1]
-        }
+        # Load Fieberkurve data for season overview
+        try:
+            df_fieberkurve = pd.read_csv("Fieberkurve.csv", sep=";")
+            
+            # Create Fieberkurve chart
+            fig = px.line(df_fieberkurve, x='Spieltag', y='Platzierung', 
+                         title='Fieberkurve - Tabellenplatzierung Saison 2024/25',
+                         line_shape='spline')
+            fig.update_traces(line_color='#1e3c72', line_width=3, mode='lines+markers')
+            
+            # Invert y-axis so that position 1 is at the top
+            fig.update_layout(
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)',
+                font_color='#333',
+                yaxis=dict(autorange='reversed', title='Tabellenplatz'),
+                xaxis=dict(title='Spieltag')
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+            
+        except Exception as e:
+            # Fallback if CSV can't be loaded
+            st.error(f"❌ Fieberkurve-Daten konnten nicht geladen werden: {str(e)}")
+            
+            # Fallback to sample data
+            performance_data = {
+                'Monat': ['August', 'September', 'Oktober', 'November', 'Dezember'],
+                'Trainingsquote': [85, 88, 82, 90, 87],
+                'Spiele': [4, 5, 3, 4, 2],
+                'Siege': [3, 3, 2, 3, 1]
+            }
+            
+            df = pd.DataFrame(performance_data)
+            
+            # Training attendance chart
+            fig = px.line(df, x='Monat', y='Trainingsquote', 
+                         title='Trainingsquote der letzten Monate',
+                         line_shape='spline')
+            fig.update_traces(line_color='#1e3c72', line_width=3)
+            fig.update_layout(
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)',
+                font_color='#333'
+            )
+            st.plotly_chart(fig, use_container_width=True)
         
-        df = pd.DataFrame(performance_data)
-        
-        # Training attendance chart
-        fig = px.line(df, x='Monat', y='Trainingsquote', 
-                     title='Trainingsquote der letzten Monate',
-                     line_shape='spline')
-        fig.update_traces(line_color='#1e3c72', line_width=3)
-        fig.update_layout(
-            plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)',
-            font_color='#333'
-        )
-        st.plotly_chart(fig, use_container_width=True)
-        
-        # Recent activities
-        st.subheader("🔄 Letzte Aktivitäten")
-        
-        activities = [
-            {"Zeit": "Heute, 14:30", "Aktivität": "Training absolviert", "Spieler": "Gesamtes Team"},
-            {"Zeit": "Gestern, 19:45", "Aktivität": "Strafzahlung eingegangen", "Spieler": "Thomas Schmidt"},
-            {"Zeit": "Montag, 18:00", "Aktivität": "Neuer Geburtstag eingetragen", "Spieler": "Max Mustermann"},
-            {"Zeit": "Sonntag, 16:30", "Aktivität": "Spielbericht hochgeladen", "Spieler": "Trainer"},
-        ]
-        
-        for activity in activities:
-            with st.container():
-                st.markdown(f"""
-                <div class="metric-card">
-                    <strong>{activity['Zeit']}</strong><br>
-                    {activity['Aktivität']} - <em>{activity['Spieler']}</em>
-                </div>
-                """, unsafe_allow_html=True)
-    
     with col_right:
         # Team info box
         st.subheader("🏆 Teaminfos")
         st.info("""
         **Saison 2024/25**
-        - Liga: Kreisliga A
-        - Tabellenplatz: 3.
-        - Punkte: 28
-        - Torverhältnis: 34:18
-        - Nächstes Spiel: Sonntag 15:00
+        - Liga: Bezirksliga
+        - Tabellenplatz: 8.
+        - Punkte: 44
+        - Torverhältnis: 61:62
+        - Nächstes Spiel: Sonntag 15:30
         """)
         
-        # Weather widget placeholder
+        # Weather widget with real API data
         st.subheader("🌤️ Wetter für's Training")
-        st.success("Heute: 15°C, bewölkt ☁️\nPerfekt für Training!")
+        
+        # Get API key from Streamlit secrets
+        try:
+            api_key = st.secrets["OPENWEATHER_API_KEY"]
+            weather_data = get_weather_data("Buchholz", api_key)
+            
+            if weather_data:
+                # Display real weather data
+                st.success(f"""
+                **Aktuelles Wetter in Buchholz:**
+                
+                {weather_data['emoji']} {weather_data['temperature']}°C - {weather_data['description']}
+                
+                💨 Wind: {weather_data['wind_speed']} km/h | 💧 Luftfeuchtigkeit: {weather_data['humidity']}%
+                
+                {'🟢 Perfekt für Training!' if weather_data['temperature'] > 5 and 'rain' not in weather_data['description'].lower() else '🟡 Training möglich, aber Wetter beachten!'}
+                """)
+            else:
+                # Fallback if API call fails
+                st.warning("⚠️ Wetterdaten konnten nicht abgerufen werden.")
+                st.info("Bitte aktuelles Wetter selbst prüfen!")
+                
+        except Exception as e:
+            # Fallback if no API key or other error
+            st.info("""
+            **🔧 API-Key konfigurieren:**
+            
+            Für echte Wetterdaten bitte `OPENWEATHER_API_KEY` in den Streamlit Secrets hinterlegen.
+            
+            Bis dahin: Wetter selbst prüfen! ��️
+            """)
+        
+        # Training times
+        st.subheader("⏰ Trainingszeiten")
+        st.info("""
+        **Wöchentliche Trainings:**
+        - Dienstag: 18:30
+        - Donnerstag: 19:45
+        - Freitag: 18:45
+        """)
     
     # Footer
     st.markdown("---")
