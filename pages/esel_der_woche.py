@@ -263,208 +263,340 @@ def show():
         # Custom CSS for better form styling
         st.markdown("""
         <style>
+        /* Selectbox styling */
         .stSelectbox > div > div {
-            background-color: #f8f9fa !important;
-            border: 2px solid #e9ecef !important;
+            background-color: #ffffff !important;
+            border: 2px solid #dee2e6 !important;
             border-radius: 8px !important;
-            color: #000000 !important;
+            color: #212529 !important;
+            font-weight: 600 !important;
         }
         .stSelectbox > div > div:focus-within {
             border-color: #0d6efd !important;
             box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25) !important;
         }
-        .stDateInput > div > div > input {
-            background-color: #f8f9fa !important;
-            border: 2px solid #e9ecef !important;
-            border-radius: 8px !important;
-            color: #000000 !important;
+        
+        /* Dropdown options styling */
+        .stSelectbox [data-baseweb="select"] {
+            background-color: #ffffff !important;
+        }
+        .stSelectbox [data-baseweb="popover"] {
+            background-color: #ffffff !important;
+        }
+        .stSelectbox [role="option"] {
+            background-color: #ffffff !important;
+            color: #212529 !important;
             font-weight: 500 !important;
         }
-        .stNumberInput > div > div > input {
+        .stSelectbox [role="option"]:hover {
             background-color: #f8f9fa !important;
-            border: 2px solid #e9ecef !important;
-            border-radius: 8px !important;
             color: #000000 !important;
-            font-weight: 500 !important;
         }
-        .stTextArea > div > div > textarea {
-            background-color: #f8f9fa !important;
-            border: 2px solid #e9ecef !important;
-            border-radius: 8px !important;
-            color: #000000 !important;
-            font-weight: 500 !important;
-        }
-        .stSelectbox label, .stDateInput label, .stNumberInput label, .stTextArea label {
+        .stSelectbox [aria-selected="true"] {
+            background-color: #e3f2fd !important;
             color: #000000 !important;
             font-weight: 600 !important;
+        }
+        
+        /* ENHANCED Dropdown search input styling with multiple selectors */
+        .stSelectbox [data-baseweb="input"] input,
+        .stSelectbox input[type="text"],
+        .stSelectbox input,
+        div[data-baseweb="select"] input,
+        div[data-baseweb="popover"] input,
+        [data-testid="stSelectbox"] input {
+            background-color: #ffffff !important;
+            color: #212529 !important;
+            border: 1px solid #dee2e6 !important;
+            font-weight: 600 !important;
+            font-size: 14px !important;
+        }
+        
+        .stSelectbox [data-baseweb="input"] input:focus,
+        .stSelectbox input[type="text"]:focus,
+        .stSelectbox input:focus,
+        div[data-baseweb="select"] input:focus,
+        div[data-baseweb="popover"] input:focus,
+        [data-testid="stSelectbox"] input:focus {
+            background-color: #ffffff !important;
+            color: #212529 !important;
+            border-color: #0d6efd !important;
+            outline: none !important;
+            box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.25) !important;
+        }
+        
+        .stSelectbox [data-baseweb="input"] input::placeholder,
+        .stSelectbox input[type="text"]::placeholder,
+        .stSelectbox input::placeholder,
+        div[data-baseweb="select"] input::placeholder,
+        div[data-baseweb="popover"] input::placeholder,
+        [data-testid="stSelectbox"] input::placeholder {
+            color: #6c757d !important;
+            opacity: 1 !important;
+        }
+        
+        /* Universal input styling within selectbox */
+        .stSelectbox * input {
+            background-color: #ffffff !important;
+            color: #212529 !important;
+            border: 1px solid #dee2e6 !important;
+            font-weight: 600 !important;
+        }
+        
+        .stSelectbox * input:focus {
+            background-color: #ffffff !important;
+            color: #212529 !important;
+            border-color: #0d6efd !important;
+            outline: none !important;
+        }
+        
+        /* Date input styling */
+        .stDateInput > div > div > input {
+            background-color: #ffffff !important;
+            border: 2px solid #dee2e6 !important;
+            border-radius: 8px !important;
+            color: #212529 !important;
+            font-weight: 600 !important;
+        }
+        .stDateInput > div > div > input:focus {
+            border-color: #0d6efd !important;
+            box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25) !important;
+        }
+        
+        /* Number input styling */
+        .stNumberInput > div > div > input {
+            background-color: #ffffff !important;
+            border: 2px solid #dee2e6 !important;
+            border-radius: 8px !important;
+            color: #212529 !important;
+            font-weight: 600 !important;
+        }
+        .stNumberInput > div > div > input:focus {
+            border-color: #0d6efd !important;
+            box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25) !important;
+        }
+        
+        /* Text area styling */
+        .stTextArea > div > div > textarea {
+            background-color: #ffffff !important;
+            border: 2px solid #dee2e6 !important;
+            border-radius: 8px !important;
+            color: #212529 !important;
+            font-weight: 500 !important;
+        }
+        .stTextArea > div > div > textarea:focus {
+            border-color: #0d6efd !important;
+            box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25) !important;
+        }
+        
+        /* Simple white labels styling */
+        .stSelectbox label, .stDateInput label, .stNumberInput label, .stTextArea label {
+            color: #ffffff !important;
+            font-weight: 700 !important;
             font-size: 1rem !important;
+        }
+        
+        /* Simple white headings */
+        .stMarkdown h3 {
+            color: #ffffff !important;
+            font-weight: 700 !important;
+        }
+        
+        .stMarkdown h4 {
+            color: #ffffff !important;
+            font-weight: 700 !important;
+        }
+        
+        /* Button styling for better contrast */
+        .stButton > button {
+            background-color: #0d6efd !important;
+            color: #ffffff !important;
+            border: none !important;
+            font-weight: 600 !important;
+        }
+        .stButton > button:hover {
+            background-color: #0b5ed7 !important;
+            color: #ffffff !important;
         }
         </style>
         """, unsafe_allow_html=True)
         
-        with st.form("add_penalty"):
-            col1, col2 = st.columns(2)
+        # Penalty input form - now reactive without form wrapper
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            spieler = st.selectbox("👤 Spieler auswählen", 
+                                 real_players,
+                                 help="Wählen Sie den Spieler aus der Mannschaftsliste")
+        
+        with col2:
+            datum = st.date_input("📅 Datum", value=datetime.now().date(),
+                                help="Datum an dem die Strafe aufgetreten ist")
+        
+        # Enhanced penalty types with more options
+        penalty_types = [
+            "18. oder 19. Kontakt in der Ecke vergeigt",
+            "20 Kontakte in der Ecke",
+            "Abmeldung vom Spiel nicht persönlich bei Trainer",
+            "Abmeldung vom Training nicht persönlich bei Trainer",
+            "Alkohol im Trikot",
+            "Ball über Zaun",
+            "Beini in der Ecke",
+            "Beitrag Mannschaftskasse - pro Monat",
+            "Falscher Einwurf",
+            "Falsches Kleidungsstück beim Präsentationsanzug - pro Stück",
+            "Falsches Outfit beim Training - pro Stück",
+            "Gegentor (Spieler)",
+            "Gelb-Rote Karte (Alles außer Foulspiel)",
+            "Gelbe Karte (Alles außer Foulspiel)",
+            "Gerätedienst nicht richtig erfüllt - pro Person",
+            "Geschossenes Tor (Trainer)",
+            "Handy klingelt während Besprechung",
+            "Handynutzung nach der Besprechung",
+            "Kein Präsentationsanzug beim Spiel",
+            "Kiste Bier vergessen",
+            "Nicht Duschen (ohne triftigen Grund)",
+            "Rauchen im Trikot",
+            "Rauchen in der Kabine",
+            "Rote Karte (Alles außer Foulspiel)",
+            "Shampoo/Badelatschen etc. vergessen - pro Teil",
+            "Stange/Hürde o. anderes Trainingsutensil umwerfen",
+            "Unentschuldigtes Fehlen bei Mannschaftsabend oder Event",
+            "Unentschuldigtes Fehlen beim Spiel",
+            "Unentschuldigtes Fehlen beim Training",
+            "Unentschuldigtes Fehlen nach Heimspiel (ca. 1 Stunde nach Abpfiff)",
+            "Vergessene Gegenstände/Kleidungsstücke - pro Teil",
+            "Verspätung Training/Spiel (auf dem Platz) - ab 30 Min.",
+            "Verspätung Training/Spiel (auf dem Platz) - ab 5 Min.",
+            "Verspätung Training/Spiel (auf dem Platz) - pro Min.",
+            "Sonstige"
+        ]
+        
+        # Penalty type selection outside of form for reactivity
+        strafe_typ = st.selectbox("⚖️ Strafenart", 
+                                penalty_types,
+                                help="Wählen Sie die Art der Strafe aus dem kompletten Katalog")
+        
+        # Predefined penalty amounts from the catalog
+        strafe_beträge = {
+            "Verspätung Training/Spiel (auf dem Platz) - pro Min.": 1.00,
+            "Verspätung Training/Spiel (auf dem Platz) - ab 5 Min.": 5.00,
+            "Verspätung Training/Spiel (auf dem Platz) - ab 30 Min.": 15.00,
+            "Gelbe Karte (Alles außer Foulspiel)": 15.00,
+            "Gelb-Rote Karte (Alles außer Foulspiel)": 30.00,
+            "Rote Karte (Alles außer Foulspiel)": 50.00,
+            "Unentschuldigtes Fehlen beim Training": 25.00,
+            "Unentschuldigtes Fehlen beim Spiel": 100.00,
+            "Unentschuldigtes Fehlen nach Heimspiel (ca. 1 Stunde nach Abpfiff)": 5.00,
+            "Abmeldung vom Training nicht persönlich bei Trainer": 5.00,
+            "Abmeldung vom Spiel nicht persönlich bei Trainer": 10.00,
+            "Unentschuldigtes Fehlen bei Mannschaftsabend oder Event": 10.00,
+            "Kein Präsentationsanzug beim Spiel": 10.00,
+            "Falsches Kleidungsstück beim Präsentationsanzug - pro Stück": 3.00,
+            "Falsches Outfit beim Training - pro Stück": 1.00,
+            "Rauchen in der Kabine": 25.00,
+            "Rauchen im Trikot": 25.00,
+            "Alkohol im Trikot": 25.00,
+            "Handy klingelt während Besprechung": 15.00,
+            "Handynutzung nach der Besprechung": 5.00,
+            "Shampoo/Badelatschen etc. vergessen - pro Teil": 1.00,
+            "Nicht Duschen (ohne triftigen Grund)": 5.00,
+            "Gerätedienst nicht richtig erfüllt - pro Person": 1.00,
+            "Ball über Zaun": 1.00,
+            "Beini in der Ecke": 1.00,
+            "20 Kontakte in der Ecke": 1.00,
+            "18. oder 19. Kontakt in der Ecke vergeigt": 0.50,
+            "Falscher Einwurf": 0.50,
+            "Stange/Hürde o. anderes Trainingsutensil umwerfen": 1.00,
+            "Vergessene Gegenstände/Kleidungsstücke - pro Teil": 1.00,
+            "Gegentor (Spieler)": 0.50,
+            "Geschossenes Tor (Trainer)": 1.00,
+            "Beitrag Mannschaftskasse - pro Monat": 5.00,
+            "Kiste Bier vergessen": 15.00
+        }
+        
+        # Amount field that updates automatically based on penalty type
+        if strafe_typ == "Sonstige":
+            # Info for custom penalties
+            st.info("📝 **Individuelle Strafe:** Betrag frei wählbar")
+            betrag = st.number_input("💰 Individueller Betrag (€)", 
+                                   min_value=0.01, 
+                                   step=0.01,
+                                   value=1.00,
+                                   help="Geben Sie den gewünschten Strafbetrag ein")
+        else:
+            # Info for catalog penalties
+            default_betrag = strafe_beträge.get(strafe_typ, 10.00)
+            st.info(f"📋 **Standard-Katalogstrafe:** €{default_betrag:.2f}")
+            betrag = st.number_input("💰 Standard-Betrag (€) - anpassbar", 
+                                   value=default_betrag,
+                                   step=0.01,
+                                   help=f"Katalog-Standard: €{default_betrag:.2f} - kann bei Bedarf angepasst werden")
+        
+        # Additional info and submit
+        zusatz_info = st.text_area("📝 Zusätzliche Informationen (optional)",
+                                 help="Weitere Details zur Strafe (z.B. Umstände, Minuten bei Verspätung)")
+        
+        # Submit button outside of form for immediate responsiveness
+        if st.button("💾 Strafe hinzufügen", type="primary", use_container_width=True):
+            st.success(f"✅ Strafe für **{spieler}** wurde hinzugefügt!")
             
-            with col1:
-                spieler = st.selectbox("👤 Spieler auswählen", 
-                                     real_players,
-                                     help="Wählen Sie den Spieler aus der Mannschaftsliste")
-                
-                # Enhanced penalty types with more options
-                strafe_typ = st.selectbox("⚖️ Strafenart", 
-                                        ["Verspätung Training/Spiel (auf dem Platz) - pro Min.",
-                                         "Verspätung Training/Spiel (auf dem Platz) - ab 5 Min.",
-                                         "Verspätung Training/Spiel (auf dem Platz) - ab 30 Min.",
-                                         "Gelbe Karte (Alles außer Foulspiel)",
-                                         "Gelb-Rote Karte (Alles außer Foulspiel)",
-                                         "Rote Karte (Alles außer Foulspiel)",
-                                         "Unentschuldigtes Fehlen beim Training",
-                                         "Unentschuldigtes Fehlen beim Spiel",
-                                         "Unentschuldigtes Fehlen nach Heimspiel (ca. 1 Stunde nach Abpfiff)",
-                                         "Abmeldung vom Training nicht persönlich bei Trainer",
-                                         "Abmeldung vom Spiel nicht persönlich bei Trainer",
-                                         "Unentschuldigtes Fehlen bei Mannschaftsabend oder Event",
-                                         "Kein Präsentationsanzug beim Spiel",
-                                         "Falsches Kleidungsstück beim Präsentationsanzug - pro Stück",
-                                         "Falsches Outfit beim Training - pro Stück",
-                                         "Rauchen in der Kabine",
-                                         "Rauchen im Trikot",
-                                         "Alkohol im Trikot",
-                                         "Handy klingelt während Besprechung",
-                                         "Handynutzung nach der Besprechung",
-                                         "Shampoo/Badelatschen etc. vergessen - pro Teil",
-                                         "Nicht Duschen (ohne triftigen Grund)",
-                                         "Gerätedienst nicht richtig erfüllt - pro Person",
-                                         "Ball über Zaun",
-                                         "Beini in der Ecke",
-                                         "20 Kontakte in der Ecke",
-                                         "18. oder 19. Kontakt in der Ecke vergeigt",
-                                         "Falscher Einwurf",
-                                         "Stange/Hürde o. anderes Trainingsutensil umwerfen",
-                                         "Vergessene Gegenstände/Kleidungsstücke - pro Teil",
-                                         "Gegentor (Spieler)",
-                                         "Geschossenes Tor (Trainer)",
-                                         "Beitrag Mannschaftskasse - pro Monat",
-                                         "Kiste Bier vergessen",
-                                         "Sonstige"],
-                                        help="Wählen Sie die Art der Strafe aus dem kompletten Katalog")
+            # Enhanced info display
+            info_card = f"""
+            <div style='
+                background: linear-gradient(135deg, #17a2b8, #138496);
+                padding: 1rem;
+                border-radius: 8px;
+                color: white;
+                margin: 1rem 0;
+                border-left: 4px solid #ffffff;
+            '>
+                <div style='display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;'>
+                    <span style='font-size: 1.2rem;'>📋</span>
+                    <strong>Strafendetails</strong>
+                </div>
+                <p style='margin: 0.2rem 0;'><strong>Spieler:</strong> {spieler}</p>
+                <p style='margin: 0.2rem 0;'><strong>Strafenart:</strong> {strafe_typ}</p>
+                <p style='margin: 0.2rem 0;'><strong>Betrag:</strong> €{betrag:.2f}</p>
+                <p style='margin: 0.2rem 0;'><strong>Datum:</strong> {datum.strftime('%d.%m.%Y')}</p>
+                {f"<p style='margin: 0.2rem 0;'><strong>Zusatzinfo:</strong> {zusatz_info}</p>" if zusatz_info else ""}
+            </div>
+            """
+            st.markdown(info_card, unsafe_allow_html=True)
             
-            with col2:
-                datum = st.date_input("📅 Datum", value=datetime.now().date(),
-                                    help="Datum an dem die Strafe aufgetreten ist")
-                
-                # Predefined penalty amounts from the catalog
-                strafe_beträge = {
-                    "Verspätung Training/Spiel (auf dem Platz) - pro Min.": 1.00,
-                    "Verspätung Training/Spiel (auf dem Platz) - ab 5 Min.": 5.00,
-                    "Verspätung Training/Spiel (auf dem Platz) - ab 30 Min.": 15.00,
-                    "Gelbe Karte (Alles außer Foulspiel)": 15.00,
-                    "Gelb-Rote Karte (Alles außer Foulspiel)": 30.00,
-                    "Rote Karte (Alles außer Foulspiel)": 50.00,
-                    "Unentschuldigtes Fehlen beim Training": 25.00,
-                    "Unentschuldigtes Fehlen beim Spiel": 100.00,
-                    "Unentschuldigtes Fehlen nach Heimspiel (ca. 1 Stunde nach Abpfiff)": 5.00,
-                    "Abmeldung vom Training nicht persönlich bei Trainer": 5.00,
-                    "Abmeldung vom Spiel nicht persönlich bei Trainer": 10.00,
-                    "Unentschuldigtes Fehlen bei Mannschaftsabend oder Event": 10.00,
-                    "Kein Präsentationsanzug beim Spiel": 10.00,
-                    "Falsches Kleidungsstück beim Präsentationsanzug - pro Stück": 3.00,
-                    "Falsches Outfit beim Training - pro Stück": 1.00,
-                    "Rauchen in der Kabine": 25.00,
-                    "Rauchen im Trikot": 25.00,
-                    "Alkohol im Trikot": 25.00,
-                    "Handy klingelt während Besprechung": 15.00,
-                    "Handynutzung nach der Besprechung": 5.00,
-                    "Shampoo/Badelatschen etc. vergessen - pro Teil": 1.00,
-                    "Nicht Duschen (ohne triftigen Grund)": 5.00,
-                    "Gerätedienst nicht richtig erfüllt - pro Person": 1.00,
-                    "Ball über Zaun": 1.00,
-                    "Beini in der Ecke": 1.00,
-                    "20 Kontakte in der Ecke": 1.00,
-                    "18. oder 19. Kontakt in der Ecke vergeigt": 0.50,
-                    "Falscher Einwurf": 0.50,
-                    "Stange/Hürde o. anderes Trainingsutensil umwerfen": 1.00,
-                    "Vergessene Gegenstände/Kleidungsstücke - pro Teil": 1.00,
-                    "Gegentor (Spieler)": 0.50,
-                    "Geschossenes Tor (Trainer)": 1.00,
-                    "Beitrag Mannschaftskasse - pro Monat": 5.00,
-                    "Kiste Bier vergessen": 15.00
+            # Save penalty to CSV
+            try:
+                # Create new penalty entry
+                new_penalty = {
+                    'Datum': datum.strftime('%d.%m.%Y'),
+                    'Spieler': spieler,
+                    'Strafe': strafe_typ,
+                    'Betrag': betrag,
+                    'Zusatzinfo': zusatz_info if zusatz_info else ''
                 }
                 
-                if strafe_typ == "Sonstige":
-                    betrag = st.number_input("💰 Betrag (€)", min_value=0.01, step=0.01,
-                                           help="Geben Sie den Strafbetrag ein")
-                else:
-                    default_betrag = strafe_beträge.get(strafe_typ, 10.00)
-                    betrag = st.number_input("💰 Betrag (€)", 
-                                           value=default_betrag,
-                                           step=0.01,
-                                           help=f"Standardbetrag aus Katalog: €{default_betrag:.2f}")
-            
-            zusatz_info = st.text_area("📝 Zusätzliche Informationen (optional)",
-                                     help="Weitere Details zur Strafe (z.B. Umstände, Minuten bei Verspätung)")
-            
-            submitted = st.form_submit_button("💾 Strafe hinzufügen", type="primary", use_container_width=True)
-            
-            if submitted:
-                st.success(f"✅ Strafe für **{spieler}** wurde hinzugefügt!")
-                
-                # Enhanced info display
-                info_card = f"""
-                <div style='
-                    background: linear-gradient(135deg, #17a2b8, #138496);
-                    padding: 1rem;
-                    border-radius: 8px;
-                    color: white;
-                    margin: 1rem 0;
-                    border-left: 4px solid #ffffff;
-                '>
-                    <div style='display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;'>
-                        <span style='font-size: 1.2rem;'>📋</span>
-                        <strong>Strafendetails</strong>
-                    </div>
-                    <p style='margin: 0.2rem 0;'><strong>Spieler:</strong> {spieler}</p>
-                    <p style='margin: 0.2rem 0;'><strong>Strafenart:</strong> {strafe_typ}</p>
-                    <p style='margin: 0.2rem 0;'><strong>Betrag:</strong> €{betrag:.2f}</p>
-                    <p style='margin: 0.2rem 0;'><strong>Datum:</strong> {datum.strftime('%d.%m.%Y')}</p>
-                    {f"<p style='margin: 0.2rem 0;'><strong>Zusatzinfo:</strong> {zusatz_info}</p>" if zusatz_info else ""}
-                </div>
-                """
-                st.markdown(info_card, unsafe_allow_html=True)
-                
-                # Save penalty to CSV
+                # Try to load existing CSV
                 try:
-                    # Create new penalty entry
-                    new_penalty = {
-                        'Datum': datum.strftime('%d.%m.%Y'),
-                        'Spieler': spieler,
-                        'Strafe': strafe_typ,
-                        'Betrag': betrag,
-                        'Zusatzinfo': zusatz_info if zusatz_info else ''
-                    }
-                    
-                    # Try to load existing CSV
-                    try:
-                        df_existing = pd.read_csv("VB_Strafen.csv", sep=";", encoding="utf-8")
-                    except FileNotFoundError:
-                        # Create new DataFrame if file doesn't exist
-                        df_existing = pd.DataFrame(columns=['Datum', 'Spieler', 'Strafe', 'Betrag', 'Zusatzinfo'])
-                    
-                    # Add new penalty
-                    df_new = pd.concat([df_existing, pd.DataFrame([new_penalty])], ignore_index=True)
-                    
-                    # Save to CSV
-                    df_new.to_csv("VB_Strafen.csv", sep=";", index=False, encoding="utf-8")
-                    
-                    st.success("💾 Strafe wurde in der Datenbank gespeichert!")
-                    
-                    # Refresh the page to show updated data
-                    st.info("🔄 Seite wird aktualisiert...")
-                    st.rerun()
-                    
-                except Exception as e:
-                    st.error(f"❌ Fehler beim Speichern: {str(e)}")
-                    st.info("💡 Die Strafe konnte nicht gespeichert werden, bitte versuchen Sie es erneut.")
+                    df_existing = pd.read_csv("VB_Strafen.csv", sep=";", encoding="utf-8")
+                except FileNotFoundError:
+                    # Create new DataFrame if file doesn't exist
+                    df_existing = pd.DataFrame(columns=['Datum', 'Spieler', 'Strafe', 'Betrag', 'Zusatzinfo'])
+                
+                # Add new penalty
+                df_new = pd.concat([df_existing, pd.DataFrame([new_penalty])], ignore_index=True)
+                
+                # Save to CSV
+                df_new.to_csv("VB_Strafen.csv", sep=";", index=False, encoding="utf-8")
+                
+                st.success("💾 Strafe wurde in der Datenbank gespeichert!")
+                
+                # Refresh the page to show updated data
+                st.info("🔄 Seite wird aktualisiert...")
+                st.rerun()
+                
+            except Exception as e:
+                st.error(f"❌ Fehler beim Speichern: {str(e)}")
+                st.info("💡 Die Strafe konnte nicht gespeichert werden, bitte versuchen Sie es erneut.")
         
         st.markdown("---")
         

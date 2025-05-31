@@ -1,10 +1,16 @@
 Datum;Spieler;Strafe;Betrag;Zusatzinfo
-01.12.2024;Thomas Schmidt;Verspätung Training/Spiel (auf dem Platz) - ab 5 Min.;5.0;
+01.12.2024;Lars;Verspätung Training/Spiel (auf dem Platz) - ab 5 Min.;5.0;
 30.11.2024;Luca Motuzzi;Handynutzung nach der Besprechung;5.0;
 29.11.2024;Ben;Beini in der Ecke;1.0;
-28.11.2024;Max Mustermann;Verspätung Training/Spiel (auf dem Platz) - ab 30 Min.;15.0;7 Minuten zu spät
-25.11.2024;Michael Weber;Rote Karte (Alles außer Foulspiel);50.0;Schiedsrichterbeleidigung 
+28.11.2024;Tobi;Verspätung Training/Spiel (auf dem Platz) - ab 30 Min.;15.0;7 Minuten zu spät
+25.11.2024;Marc;Rote Karte (Alles außer Foulspiel);50.0;Schiedsrichterbeleidigung 
 30.05.2025;Ben;Gelbe Karte (Alles außer Foulspiel);15.0;
 30.05.2025;Borki;Rote Karte (Alles außer Foulspiel);50.0;
 22.05.2025;Ben;Verspätung Training/Spiel (auf dem Platz) - pro Min.;1.0;
 30.05.2025;Ben;Beini in der Ecke;1.0;Schnell-Strafe
+31.05.2025;Luca Motuzzi;Gelb-Rote Karte (Alles außer Foulspiel);30.0;
+31.05.2025;Luca Motuzzi;Rote Karte (Alles außer Foulspiel);50.0;
+20.05.2025;Luca Motuzzi;Gelbe Karte (Alles außer Foulspiel);15.0;
+31.05.2025;Ben;Abmeldung vom Spiel nicht persönlich bei Trainer;5.0;
+31.05.2025;Tobi;20 Kontakte in der Ecke;10.0;
+31.05.2025;Tobi;Falscher Einwurf;0.5;Schnell-Strafe

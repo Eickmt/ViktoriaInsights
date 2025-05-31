@@ -10,6 +10,118 @@ def show():
     st.title("🏆 Trainingsspielsiege")
     st.subheader("Spielerleistung und Siegesanalyse")
     
+    # Add CSS for better input field contrast
+    st.markdown("""
+    <style>
+    /* Selectbox styling */
+    .stSelectbox > div > div {
+        background-color: #ffffff !important;
+        border: 2px solid #dee2e6 !important;
+        border-radius: 8px !important;
+        color: #212529 !important;
+        font-weight: 600 !important;
+    }
+    .stSelectbox > div > div:focus-within {
+        border-color: #0d6efd !important;
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25) !important;
+    }
+    
+    /* Dropdown options styling */
+    .stSelectbox [data-baseweb="select"] {
+        background-color: #ffffff !important;
+    }
+    .stSelectbox [data-baseweb="popover"] {
+        background-color: #ffffff !important;
+    }
+    .stSelectbox [role="option"] {
+        background-color: #ffffff !important;
+        color: #212529 !important;
+        font-weight: 500 !important;
+    }
+    .stSelectbox [role="option"]:hover {
+        background-color: #f8f9fa !important;
+        color: #000000 !important;
+    }
+    .stSelectbox [aria-selected="true"] {
+        background-color: #e3f2fd !important;
+        color: #000000 !important;
+        font-weight: 600 !important;
+    }
+    
+    /* ENHANCED Dropdown search input styling with multiple selectors */
+    .stSelectbox [data-baseweb="input"] input,
+    .stSelectbox input[type="text"],
+    .stSelectbox input,
+    div[data-baseweb="select"] input,
+    div[data-baseweb="popover"] input,
+    [data-testid="stSelectbox"] input {
+        background-color: #ffffff !important;
+        color: #212529 !important;
+        border: 1px solid #dee2e6 !important;
+        font-weight: 600 !important;
+        font-size: 14px !important;
+    }
+    
+    .stSelectbox [data-baseweb="input"] input:focus,
+    .stSelectbox input[type="text"]:focus,
+    .stSelectbox input:focus,
+    div[data-baseweb="select"] input:focus,
+    div[data-baseweb="popover"] input:focus,
+    [data-testid="stSelectbox"] input:focus {
+        background-color: #ffffff !important;
+        color: #212529 !important;
+        border-color: #0d6efd !important;
+        outline: none !important;
+        box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.25) !important;
+    }
+    
+    .stSelectbox [data-baseweb="input"] input::placeholder,
+    .stSelectbox input[type="text"]::placeholder,
+    .stSelectbox input::placeholder,
+    div[data-baseweb="select"] input::placeholder,
+    div[data-baseweb="popover"] input::placeholder,
+    [data-testid="stSelectbox"] input::placeholder {
+        color: #6c757d !important;
+        opacity: 1 !important;
+    }
+    
+    /* Universal input styling within selectbox */
+    .stSelectbox * input {
+        background-color: #ffffff !important;
+        color: #212529 !important;
+        border: 1px solid #dee2e6 !important;
+        font-weight: 600 !important;
+    }
+    
+    .stSelectbox * input:focus {
+        background-color: #ffffff !important;
+        color: #212529 !important;
+        border-color: #0d6efd !important;
+        outline: none !important;
+    }
+    
+    /* Date input styling */
+    .stDateInput > div > div > input {
+        background-color: #ffffff !important;
+        border: 2px solid #dee2e6 !important;
+        border-radius: 8px !important;
+        color: #212529 !important;
+        font-weight: 600 !important;
+    }
+    .stDateInput > div > div > input:focus {
+        border-color: #0d6efd !important;
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25) !important;
+    }
+    
+    /* Labels styling */
+    .stDateInput label {
+        color: #212529 !important;
+        font-weight: 700 !important;
+        font-size: 1rem !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
     # Load training victories data
     try:
         df_siege = pd.read_csv("VB_Trainingsspielsiege.csv", sep=";")

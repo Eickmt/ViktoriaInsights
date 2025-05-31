@@ -39,13 +39,6 @@ Eine moderne Streamlit-App für die erste Mannschaft von Viktoria Buchholz.
 - Esel-Historie der letzten Wochen
 - Schnelle Strafen-Eingabe
 
-### ⭐ Team Gimmicks
-- Zufalls-Generator für Teamentscheidungen
-- Sprüche des Tages mit Voting-System
-- Team-Umfragen und Abstimmungen
-- Fotogalerie mit verschiedenen Kategorien
-- Interaktive Spiele und Challenges
-
 ## 🚀 Installation
 
 ### Voraussetzungen
@@ -94,8 +87,7 @@ ViktoriaInsights/
     ├── teamkalender.py    # Geburtstagskalender
     ├── mannschaftskasse.py # Finanzverwaltung
     ├── trainingsstatistiken.py # Trainingsanalyse
-    ├── esel_der_woche.py  # Strafenverwaltung
-    └── gimmicks.py        # Spaß-Features
+    └── esel_der_woche.py  # Strafenverwaltung
 ```
 
 ## 🎨 Features im Detail
