@@ -5,6 +5,10 @@ import plotly.express as px
 import os
 import requests
 
+# Environment variables support
+from dotenv import load_dotenv
+load_dotenv()  # Load environment variables from .env file
+
 # LangGraph and AI imports
 try:
     from langgraph.graph import StateGraph, END
@@ -20,10 +24,26 @@ except ImportError:
 class ChatState(TypedDict):
     messages: Annotated[list, add_messages]
 
+def get_api_key(key_name):
+    """Get API key from environment variables or Streamlit secrets"""
+    # Try environment variable first (for local development)
+    api_key = os.getenv(key_name)
+    if api_key:
+        return api_key
+    
+    # Fallback to Streamlit secrets (for deployment)
+    try:
+        return st.secrets[key_name]
+    except:
+        return None
+
 def initialize_gemini():
     """Initialize Gemini AI model"""
     try:
-        api_key = st.secrets["GEMINI_API_KEY"]
+        api_key = get_api_key("GEMINI_API_KEY")
+        if not api_key:
+            return None
+            
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel('gemini-1.5-flash')
         return model
@@ -524,7 +544,7 @@ def show():
             # TEMPORÄR ZUM TESTEN: API Key hier eintragen
             #api_key = "bd29dad094220635ed7c50cbb1e3061c"
             
-            api_key = st.secrets["OPENWEATHER_API_KEY"]
+            api_key = get_api_key("OPENWEATHER_API_KEY")
             weather_data = get_weather_data("Buchholz", api_key)
             
             if weather_data:
