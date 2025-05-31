@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import plotly.express as px
 import os
 import requests
+import team_scraper  # Neues Scraping-Modul
 
 @st.cache_data(ttl=600)  # Cache für 10 Minuten
 def get_weather_data(city="Buchholz", api_key=None):
@@ -385,16 +386,24 @@ def show():
             st.plotly_chart(fig, use_container_width=True)
         
     with col_right:
-        # Team info box
+        # Team info box with automatic scraping
         st.subheader("🏆 Teaminfos")
-        st.info("""
-        **Saison 2024/25**
-        - Liga: Bezirksliga
-        - Tabellenplatz: 8.
-        - Punkte: 44
-        - Torverhältnis: 61:62
-        - Nächstes Spiel: Sonntag 15:30
-        """)
+        
+        try:
+            # Lade aktuelle Teamdaten über den Team-Scraper
+            viktoria_info, data_source = team_scraper.get_team_data()
+            formatted_info = team_scraper.format_team_info(viktoria_info, data_source)
+            st.info(formatted_info)
+                
+        except Exception as e:
+            # Fallback bei Fehlern
+            st.info("""
+            **Saison 2024/25**
+            - Liga: Bezirksliga
+            - Tabellenplatz: 8.
+            - Punkte: 44
+            - Torverhältnis: 61:62
+            """)
         
         # Weather widget with real API data
         st.subheader("🌤️ Wetter für's Training")
