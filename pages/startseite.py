@@ -424,8 +424,6 @@ def show():
                 {weather_data['emoji']} {weather_data['temperature']}°C - {weather_data['description']}
                 
                 💨 Wind: {weather_data['wind_speed']} km/h | 💧 Luftfeuchtigkeit: {weather_data['humidity']}%
-                
-                {'🟢 Perfekt für Training!' if weather_data['temperature'] > 5 and 'rain' not in weather_data['description'].lower() else '🟡 Training möglich, aber Wetter beachten!'}
                 """)
             else:
                 # Fallback if API call fails
