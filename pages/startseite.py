@@ -5,6 +5,126 @@ import plotly.express as px
 import os
 import requests
 
+# LangGraph and AI imports
+try:
+    from langgraph.graph import StateGraph, END
+    from langgraph.graph.message import add_messages
+    from typing import Annotated, TypedDict
+    import google.generativeai as genai
+    LANGGRAPH_AVAILABLE = True
+except ImportError:
+    LANGGRAPH_AVAILABLE = False
+    st.error("❌ LangGraph oder Google Generative AI nicht installiert. Bitte installieren Sie: pip install langgraph google-generativeai")
+
+# Chatbot State Definition
+class ChatState(TypedDict):
+    messages: Annotated[list, add_messages]
+
+def initialize_gemini():
+    """Initialize Gemini AI model"""
+    try:
+        api_key = st.secrets["GEMINI_API_KEY"]
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        return model
+    except Exception as e:
+        st.error(f"❌ Fehler beim Initialisieren von Gemini: {str(e)}")
+        return None
+
+def load_csv_data():
+    """Load all CSV data for the agent to use"""
+    data_context = {}
+    
+    try:
+        # Load penalty data
+        df_penalties = pd.read_csv("VB_Strafen.csv", sep=";", encoding="utf-8")
+        data_context["penalties"] = df_penalties.to_string()
+        
+        # Load birthday data
+        df_birthdays = pd.read_csv("VB_Geburtstage.csv", sep=";", encoding="latin-1")
+        data_context["birthdays"] = df_birthdays.to_string()
+        
+        # Load training victories
+        df_training = pd.read_csv("VB_Trainingsspielsiege.csv", sep=";")
+        data_context["training"] = df_training.to_string()
+        
+        # Load league position data
+        df_fieberkurve = pd.read_csv("Fieberkurve.csv", sep=";")
+        data_context["league_position"] = df_fieberkurve.to_string()
+        
+    except Exception as e:
+        data_context["error"] = f"Fehler beim Laden der Daten: {str(e)}"
+    
+    return data_context
+
+def create_system_prompt(data_context):
+    """Create system prompt with current data context"""
+    return f"""
+Du bist der ViktoriaInsights AI-Assistent für den Fußballverein Viktoria Buchholz.
+Du hilfst bei Fragen zu Spielerdaten, Strafen, Geburtstagen, Trainingsstatistiken und Vereinsinformationen.
+
+AKTUELLE DATEN:
+
+STRAFEN-DATEN:
+{data_context.get('penalties', 'Keine Strafendaten verfügbar')}
+
+GEBURTSTAGS-DATEN:
+{data_context.get('birthdays', 'Keine Geburtstagsdaten verfügbar')}
+
+TRAININGS-SIEGE:
+{data_context.get('training', 'Keine Trainingsdaten verfügbar')}
+
+TABELLENPLATZ-VERLAUF:
+{data_context.get('league_position', 'Keine Ligadaten verfügbar')}
+
+VEREINSINFOS:
+- Liga: Bezirksliga
+- Aktueller Tabellenplatz: 8.
+- Punkte: 44
+- Torverhältnis: 61:62
+- Trainingszeiten: Dienstag 18:30, Donnerstag 19:45, Freitag 18:45
+- Mannschaftskasse: €100.00
+
+Antworte auf Deutsch und sei hilfreich und freundlich. Nutze die verfügbaren Daten für spezifische Antworten.
+Wenn Du nach Daten gefragt wirst, die nicht verfügbar sind, sage das ehrlich.
+"""
+
+def chatbot_response(state: ChatState, model, data_context):
+    """Generate chatbot response using Gemini"""
+    try:
+        # Get the last user message
+        user_message = state["messages"][-1]["content"]
+        
+        # Create system prompt with current data
+        system_prompt = create_system_prompt(data_context)
+        
+        # Prepare full prompt
+        full_prompt = f"{system_prompt}\n\nBenutzer: {user_message}\n\nAssistent:"
+        
+        # Generate response
+        response = model.generate_content(full_prompt)
+        
+        # Add response to messages
+        return {"messages": [{"role": "assistant", "content": response.text}]}
+        
+    except Exception as e:
+        error_msg = f"Entschuldigung, es gab einen Fehler: {str(e)}"
+        return {"messages": [{"role": "assistant", "content": error_msg}]}
+
+def create_chatbot_graph(model, data_context):
+    """Create LangGraph chatbot"""
+    graph = StateGraph(ChatState)
+    
+    # Add chatbot node
+    def chatbot_node(state):
+        return chatbot_response(state, model, data_context)
+    
+    graph.add_node("chatbot", chatbot_node)
+    graph.set_entry_point("chatbot")
+    graph.add_edge("chatbot", END)
+    
+    return graph.compile()
+
 @st.cache_data(ttl=600)  # Cache für 10 Minuten
 def get_weather_data(city="Buchholz", api_key=None):
     """
@@ -441,6 +561,91 @@ def show():
         - Donnerstag: 19:45
         - Freitag: 18:45
         """)
+    
+    # Chatbot Section
+    st.markdown("---")
+    st.subheader("🤖 ViktoriaInsights AI-Assistent")
+    
+    if LANGGRAPH_AVAILABLE:
+        try:
+            # Initialize session state for chat
+            if "chat_history" not in st.session_state:
+                st.session_state.chat_history = []
+            
+            # Initialize Gemini model
+            model = initialize_gemini()
+            
+            if model:
+                # Load current data for the agent
+                data_context = load_csv_data()
+                
+                # Create chatbot graph
+                chatbot_graph = create_chatbot_graph(model, data_context)
+                
+                # Chat interface
+                st.write("💬 Fragen Sie mich alles über Viktoria Buchholz - Spielerdaten, Strafen, Geburtstage, Statistiken und mehr!")
+                
+                # Display chat history
+                chat_container = st.container()
+                with chat_container:
+                    for message in st.session_state.chat_history:
+                        if message["role"] == "user":
+                            st.chat_message("user").write(message["content"])
+                        else:
+                            st.chat_message("assistant").write(message["content"])
+                
+                # Chat input
+                if user_input := st.chat_input("Ihre Frage an den AI-Assistenten..."):
+                    # Add user message to history
+                    st.session_state.chat_history.append({"role": "user", "content": user_input})
+                    
+                    # Display user message
+                    st.chat_message("user").write(user_input)
+                    
+                    # Create state for the graph
+                    initial_state = {"messages": [{"role": "user", "content": user_input}]}
+                    
+                    # Get response from chatbot
+                    with st.chat_message("assistant"):
+                        with st.spinner("🤔 Denke nach..."):
+                            try:
+                                result = chatbot_graph.invoke(initial_state)
+                                assistant_response = result["messages"][-1]["content"]
+                                
+                                # Display and save response
+                                st.write(assistant_response)
+                                st.session_state.chat_history.append({"role": "assistant", "content": assistant_response})
+                                
+                            except Exception as e:
+                                error_msg = f"Entschuldigung, es gab einen Fehler: {str(e)}"
+                                st.error(error_msg)
+                                st.session_state.chat_history.append({"role": "assistant", "content": error_msg})
+                
+                # Clear chat button
+                if st.button("🗑️ Chat löschen"):
+                    st.session_state.chat_history = []
+                    st.rerun()
+                
+                # Example questions
+                with st.expander("💡 Beispiel-Fragen"):
+                    st.write("""
+                    - Wer ist aktuell der Esel der Woche?
+                    - Welche Spieler haben die meisten Strafen?
+                    - Wann hat [Spielername] Geburtstag?
+                    - Wie viele Trainingssiege hat [Spielername]?
+                    - Wie ist die aktuelle Tabellenposition?
+                    - Was kostet eine Verspätung beim Training?
+                    - Welche Trainingszeiten gibt es?
+                    """)
+            else:
+                st.warning("⚠️ Gemini AI konnte nicht initialisiert werden. Bitte überprüfen Sie den API-Schlüssel.")
+                
+        except Exception as e:
+            st.error(f"❌ Chatbot-Fehler: {str(e)}")
+            st.info("💡 Stellen Sie sicher, dass GEMINI_API_KEY in den Streamlit Secrets konfiguriert ist.")
+    else:
+        st.warning("⚠️ Chatbot nicht verfügbar. Bitte installieren Sie die erforderlichen Pakete:")
+        st.code("pip install langgraph google-generativeai")
     
     # Footer
     st.markdown("---")
