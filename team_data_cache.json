@@ -1,15 +1,15 @@
 {
-  "last_update": "2025-05-31T23:34:42.450200",
+  "last_update": "2025-06-29T23:00:37.601291",
   "viktoria_info": {
-    "platz": "8.",
-    "punkte": "44",
-    "spiele": "31",
-    "siege": "12",
+    "platz": "6.",
+    "punkte": "47",
+    "spiele": "32",
+    "siege": "13",
     "unentschieden": "8",
     "niederlagen": "11",
-    "tore_geschossen": "61",
-    "tore_erhalten": "62",
-    "tordifferenz": "-1"
+    "tore_geschossen": "66",
+    "tore_erhalten": "63",
+    "tordifferenz": "3"
   },
   "total_teams": 18,
   "source": "fussball.de"

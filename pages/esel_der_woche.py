@@ -3,10 +3,19 @@ import pandas as pd
 from datetime import datetime, timedelta
 import plotly.express as px
 import plotly.graph_objects as go
+import sys
+import os
+
+# Add the parent directory to the path to import auth module
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from auth import require_auth, show_logout, show_user_management
 
 def show():
     st.title("🤡 Esel der Woche")
     st.subheader("Strafen und der aktuelle Wochenesel")
+    
+    # Show logout button if authenticated
+    show_logout()
     
     # Load real penalty data from CSV
     try:
@@ -102,7 +111,7 @@ def show():
                         delta=f"{int(row['Anzahl_Strafen'])} Strafen"
                     )
     else:
-        st.success("🎉 Diese Woche gab es noch keinen Esel! Alle waren brav!")
+        st.success("🎉 Diese Woche gab es noch keinen Esel!")
     
     st.markdown("---")
     
@@ -127,7 +136,18 @@ def show():
         st.metric("📈 Ø Strafe", f"€{durchschnitt:.2f}")
     
     # Tabs for detailed analysis
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["📋 Strafen-Liste", "📊 Statistiken", "➕ Neue Strafe", "🏆 Esel-Historie", "📜 Regelwerk"])
+    tab_names = ["📋 Strafen-Liste", "📊 Statistiken", "➕ Neue Strafe", "🏆 Esel-Historie", "📜 Regelwerk"]
+    
+    # Add user management tab for admins
+    if st.session_state.get("authenticated", False) and st.session_state.get("user_role") == "admin":
+        tab_names.append("👥 Benutzerverwaltung")
+    
+    tabs = st.tabs(tab_names)
+    
+    tab1, tab2, tab3, tab4, tab5 = tabs[:5]
+    
+    # Get the user management tab if it exists
+    tab6 = tabs[5] if len(tabs) > 5 else None
     
     with tab1:
         st.subheader("📋 Alle Strafen")
@@ -250,6 +270,10 @@ def show():
     
     with tab3:
         st.subheader("➕ Neue Strafe eingeben")
+        
+        # Check authentication for penalty adding
+        if not require_auth():
+            st.stop()
         
         # Load real player names from birthday CSV
         try:
@@ -1028,4 +1052,9 @@ def show():
         - Bierstrafen sind separate Verpflichtungen 
         - Bei Unstimmigkeiten entscheidet der Mannschaftsrat
         - Strafen müssen bis zum nächsten Spiel beglichen werden
-        """) 
+        """)
+    
+    # User management tab for admins
+    if tab6 is not None:
+        with tab6:
+            show_user_management() 

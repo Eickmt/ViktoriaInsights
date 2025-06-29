@@ -320,7 +320,7 @@ def show():
         if current_donkey != "Niemand" and current_donkey != "Keine Daten":
             delta_text = f"€{donkey_penalty_amount:.2f} ({donkey_penalty_count} Strafen)"
         elif current_donkey == "Niemand":
-            delta_text = "Letzte Woche: Alle brav! 🎉"
+            delta_text = "Letzte Woche: Kein Esel! 🎉"
         else:
             delta_text = "Strafen-DB nicht verfügbar"
             
