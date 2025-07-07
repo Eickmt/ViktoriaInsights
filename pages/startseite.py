@@ -444,6 +444,7 @@ def show():
         st.subheader("⏰ Trainingszeiten")
         st.info("""
         **Wöchentliche Trainings:**
+        - Montag (in der Vorbereitung): 18:45
         - Dienstag: 18:30
         - Donnerstag: 19:45
         - Freitag: 18:45
