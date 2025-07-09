@@ -342,7 +342,7 @@ def show():
                 # Parse and format the beer regulations
                 lines = biersatzung_content.split('\n')
                 
-                st.markdown("### 🍺 Vereins-Biersatzung")
+
                 
                 # Extract introduction and rules
                 introduction = []
@@ -446,10 +446,8 @@ def show():
                 st.error(f"❌ Fehler beim Laden der Biersatzung: {str(e)}")
         
         with regelwerk_tab2:
-            st.subheader("📊 Strafenkatalog")
-            
             # Hardcoded Strafenkatalog data
-            st.markdown("### 🚨 Aktueller Strafenkatalog Saison 2024/25")
+            st.markdown("### 🚨 Aktueller Strafenkatalog Saison 2025/26")
             
             # Define penalty catalog directly in code
             penalty_catalog = [

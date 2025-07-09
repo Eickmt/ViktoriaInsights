@@ -191,7 +191,7 @@ def show():
         st.metric(
             label="💰 Mannschaftskasse",
             value="€ 100.00",
-            delta="Stand 24.12.2024"
+            delta="Stand 01.07.2025"
         )
     
     with col3:

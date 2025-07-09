@@ -40,6 +40,26 @@ st.markdown("""
         background-color: #f0f2f6;
     }
     
+    /* Better text contrast for selectboxes */
+    .stSelectbox > div > div > div {
+        color: #000000 !important;
+    }
+    
+    /* Input field text color */
+    .stSelectbox [data-baseweb="select"] > div {
+        color: #000000 !important;
+    }
+    
+    /* Selected option text color */
+    .stSelectbox [data-baseweb="select"] [aria-selected="true"] {
+        color: #000000 !important;
+    }
+    
+    /* Dropdown option text colors */
+    .stSelectbox [data-baseweb="popover"] [role="option"] {
+        color: #000000 !important;
+    }
+    
     .metric-card {
         background-color: #f8f9fa;
         padding: 1rem;
