@@ -9,6 +9,7 @@ import os
 # Add the parent directory to the path to import auth module
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from auth import require_auth, show_logout, show_user_management
+from database_helper import db
 
 def show():
     st.title("🤡 Esel der Woche")
@@ -17,28 +18,24 @@ def show():
     # Show logout button if authenticated
     show_logout()
     
-    # Load real penalty data from CSV
+    # Load real penalty data from database
     try:
-        df_strafen = pd.read_csv("VB_Strafen.csv", sep=";", encoding="utf-8")
-        df_strafen['Datum'] = pd.to_datetime(df_strafen['Datum'], format='%d.%m.%Y')
-        df_strafen = df_strafen.sort_values('Datum', ascending=False)
-    except FileNotFoundError:
-        # Create sample data if file doesn't exist
-        strafen_data = [
-            {"Datum": "2024-12-01", "Spieler": "Thomas Schmidt", "Strafe": "Verspätung Training/Spiel (auf dem Platz) - ab 5 Min.", "Betrag": 5.00, "Zusatzinfo": ""},
-            {"Datum": "2024-11-30", "Spieler": "Luca Motuzzi", "Strafe": "Handynutzung nach der Besprechung", "Betrag": 5.00, "Zusatzinfo": ""},
-            {"Datum": "2024-11-29", "Spieler": "Ben", "Strafe": "Beini in der Ecke", "Betrag": 1.00, "Zusatzinfo": ""},
-            {"Datum": "2024-11-28", "Spieler": "Max Mustermann", "Strafe": "Verspätung Training/Spiel (auf dem Platz) - ab 30 Min.", "Betrag": 15.00, "Zusatzinfo": ""},
-            {"Datum": "2024-11-25", "Spieler": "Michael Weber", "Strafe": "Rote Karte (Alles außer Foulspiel)", "Betrag": 50.00, "Zusatzinfo": "Schiedsrichterbeleidigung"},
-        ]
-        df_strafen = pd.DataFrame(strafen_data)
-        df_strafen['Datum'] = pd.to_datetime(df_strafen['Datum'])
+        df_strafen = db.get_penalties()
+        
+        if df_strafen is None or len(df_strafen) == 0:
+            # Create sample data if no data exists
+            strafen_data = [
+                {"Datum": "2024-12-01", "Spieler": "Thomas Schmidt", "Strafe": "Verspätung Training/Spiel (auf dem Platz) - ab 5 Min.", "Betrag": 5.00, "Zusatzinfo": ""},
+                {"Datum": "2024-11-30", "Spieler": "Luca Motuzzi", "Strafe": "Handynutzung nach der Besprechung", "Betrag": 5.00, "Zusatzinfo": ""},
+                {"Datum": "2024-11-29", "Spieler": "Ben", "Strafe": "Beini in der Ecke", "Betrag": 1.00, "Zusatzinfo": ""},
+                {"Datum": "2024-11-28", "Spieler": "Max Mustermann", "Strafe": "Verspätung Training/Spiel (auf dem Platz) - ab 30 Min.", "Betrag": 15.00, "Zusatzinfo": ""},
+                {"Datum": "2024-11-25", "Spieler": "Michael Weber", "Strafe": "Rote Karte (Alles außer Foulspiel)", "Betrag": 50.00, "Zusatzinfo": "Schiedsrichterbeleidigung"},
+            ]
+            df_strafen = pd.DataFrame(strafen_data)
+            df_strafen['Datum'] = pd.to_datetime(df_strafen['Datum'])
+        
         df_strafen = df_strafen.sort_values('Datum', ascending=False)
         
-        # Save initial sample data to CSV
-        df_strafen_save = df_strafen.copy()
-        df_strafen_save['Datum'] = df_strafen_save['Datum'].dt.strftime('%d.%m.%Y')
-        df_strafen_save.to_csv("VB_Strafen.csv", sep=";", index=False, encoding="utf-8")
     except Exception as e:
         st.error(f"❌ Fehler beim Laden der Strafendaten: {str(e)}")
         # Fallback to empty DataFrame
@@ -275,12 +272,12 @@ def show():
         if not require_auth():
             st.stop()
         
-        # Load real player names from birthday CSV
+        # Load real player names from database
         try:
-            df_players = pd.read_csv("VB_Geburtstage.csv", sep=";", encoding="latin-1")
-            real_players = sorted(df_players['Name'].tolist())
+            real_players = db.get_player_names()
         except Exception as e:
-            # Fallback to default players if CSV can't be loaded
+            st.error(f"❌ Fehler beim Laden der Spielernamen: {str(e)}")
+            # Fallback to default players if database can't be loaded
             real_players = ["Thomas Schmidt", "Max Mustermann", "Michael Weber", 
                            "Stefan König", "Andreas Müller", "Christian Bauer"]
         
@@ -588,7 +585,7 @@ def show():
             """
             st.markdown(info_card, unsafe_allow_html=True)
             
-            # Save penalty to CSV
+            # Save penalty to database
             try:
                 # Create new penalty entry
                 new_penalty = {
@@ -599,24 +596,18 @@ def show():
                     'Zusatzinfo': zusatz_info if zusatz_info else ''
                 }
                 
-                # Try to load existing CSV
-                try:
-                    df_existing = pd.read_csv("VB_Strafen.csv", sep=";", encoding="utf-8")
-                except FileNotFoundError:
-                    # Create new DataFrame if file doesn't exist
-                    df_existing = pd.DataFrame(columns=['Datum', 'Spieler', 'Strafe', 'Betrag', 'Zusatzinfo'])
+                # Save to database
+                success = db.add_penalty(new_penalty)
                 
-                # Add new penalty
-                df_new = pd.concat([df_existing, pd.DataFrame([new_penalty])], ignore_index=True)
-                
-                # Save to CSV
-                df_new.to_csv("VB_Strafen.csv", sep=";", index=False, encoding="utf-8")
-                
-                st.success("💾 Strafe wurde in der Datenbank gespeichert!")
-                
-                # Refresh the page to show updated data
-                st.info("🔄 Seite wird aktualisiert...")
-                st.rerun()
+                if success:
+                    st.success("💾 Strafe wurde in der Datenbank gespeichert!")
+                    
+                    # Refresh the page to show updated data
+                    st.info("🔄 Seite wird aktualisiert...")
+                    st.rerun()
+                else:
+                    st.error("❌ Fehler beim Speichern in der Datenbank!")
+                    st.info("💡 Die Strafe konnte nicht gespeichert werden, bitte versuchen Sie es erneut.")
                 
             except Exception as e:
                 st.error(f"❌ Fehler beim Speichern: {str(e)}")
@@ -657,22 +648,15 @@ def show():
                     'Zusatzinfo': 'Schnell-Strafe'
                 }
                 
-                # Try to load existing CSV
-                try:
-                    df_existing = pd.read_csv("VB_Strafen.csv", sep=";", encoding="utf-8")
-                except FileNotFoundError:
-                    # Create new DataFrame if file doesn't exist
-                    df_existing = pd.DataFrame(columns=['Datum', 'Spieler', 'Strafe', 'Betrag', 'Zusatzinfo'])
+                # Save to database
+                success = db.add_penalty(new_penalty)
                 
-                # Add new penalty
-                df_new = pd.concat([df_existing, pd.DataFrame([new_penalty])], ignore_index=True)
-                
-                # Save to CSV
-                df_new.to_csv("VB_Strafen.csv", sep=";", index=False, encoding="utf-8")
-                
-                st.success(f"✅ Schnell-Strafe für **{spieler}** hinzugefügt: {strafe_typ} (€{betrag:.2f})")
-                st.info("🔄 Seite wird aktualisiert...")
-                st.rerun()
+                if success:
+                    st.success(f"✅ Schnell-Strafe für **{spieler}** hinzugefügt: {strafe_typ} (€{betrag:.2f})")
+                    st.info("🔄 Seite wird aktualisiert...")
+                    st.rerun()
+                else:
+                    st.error("❌ Fehler beim Speichern in der Datenbank!")
                 
             except Exception as e:
                 st.error(f"❌ Fehler beim Speichern: {str(e)}")

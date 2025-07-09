@@ -5,6 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import os
 import numpy as np
+from database_helper import db
 
 def show():
     st.title("🏆 Trainingsspielsiege")
@@ -122,74 +123,98 @@ def show():
     </style>
     """, unsafe_allow_html=True)
     
-    # Load training victories data
+    # Load training victories data from database
     try:
-        df_siege = pd.read_csv("VB_Trainingsspielsiege.csv", sep=";")
+        df_melted = db.get_training_victories()
         
-        # Clean and process the data
-        spieler_namen = df_siege['Spielername'].tolist()
-        datum_spalten = [col for col in df_siege.columns if col != 'Spielername']
-        
-        # Convert date columns to datetime
-        datum_mapping = {}
-        
-        # German month mapping for robustness
-        german_months = {
-            'Jan': 'Jan', 'Feb': 'Feb', 'Mrz': 'Mar', 'Apr': 'Apr',
-            'Mai': 'May', 'Jun': 'Jun', 'Jul': 'Jul', 'Aug': 'Aug',
-            'Sep': 'Sep', 'Okt': 'Oct', 'Nov': 'Nov', 'Dez': 'Dec'
-        }
-        
-        for datum_str in datum_spalten:
-            try:
-                # Parse dates - try different formats
-                datum_clean = datum_str.strip()
-                if datum_clean:
-                    # Convert German months to English for pandas
-                    datum_english = datum_clean
-                    for de_month, en_month in german_months.items():
-                        if de_month in datum_clean:
-                            datum_english = datum_clean.replace(de_month, en_month)
-                            break
-                    
-                    # Try format with year first (e.g., "14. Jan 2025")
-                    if any(year in datum_english for year in ['2024', '2025', '2026']):
-                        parsed_date = pd.to_datetime(datum_english, format="%d. %b %Y")
-                    else:
-                        # Fall back to format without year (e.g., "14. Jan") and assume current year
-                        datum_with_year = f"{datum_english} 2024"
-                        parsed_date = pd.to_datetime(datum_with_year, format="%d. %b %Y")
-                    datum_mapping[datum_str] = parsed_date
-            except Exception as e:
-                # Skip invalid dates and show which ones fail
-                st.sidebar.error(f"❌ Datum nicht erkannt: {datum_str}")
-                continue
-        
-        # Create a melted dataframe for easier analysis
-        melted_data = []
-        for _, row in df_siege.iterrows():
-            spieler = row['Spielername']
-            for datum_str in datum_spalten:
-                if datum_str in datum_mapping and pd.notna(row[datum_str]) and row[datum_str] == 1:
-                    melted_data.append({
-                        'Spieler': spieler,
-                        'Datum': datum_mapping[datum_str],
-                        'Sieg': 1
-                    })
-        
-        df_melted = pd.DataFrame(melted_data)
-        
-        if len(df_melted) == 0:
-            st.warning("Keine Siegesdaten gefunden. Bitte überprüfen Sie die CSV-Datei.")
+        if df_melted is None or len(df_melted) == 0:
+            st.warning("Keine Siegesdaten in der Datenbank gefunden.")
+            st.info("Bitte fügen Sie zunächst Trainingsdaten über den entsprechenden Tab hinzu.")
             return
-            
-    except FileNotFoundError:
-        st.error("❌ Datei 'VB_Trainingsspielsiege.csv' nicht gefunden!")
-        st.info("Bitte stellen Sie sicher, dass die CSV-Datei im Hauptverzeichnis liegt.")
-        return
+        
+        # Ensure we have the right column names and data types
+        if 'Sieg' not in df_melted.columns:
+            st.error("❌ Spalte 'Sieg' nicht in den Daten gefunden!")
+            return
+        
+        # Convert Sieg column to boolean if it's not already
+        df_melted['Sieg'] = df_melted['Sieg'].astype(bool)
+        
+        # Get unique player names for UI
+        spieler_namen = sorted(df_melted['Spieler'].unique().tolist())
+        
     except Exception as e:
-        st.error(f"❌ Fehler beim Laden der Daten: {str(e)}")
-        return
+        st.error(f"❌ Fehler beim Laden der Daten aus der Datenbank: {str(e)}")
+        st.info("Versuche Fallback zur CSV-Datei...")
+        
+        # Fallback to CSV if database fails
+        try:
+            df_siege = pd.read_csv("VB_Trainingsspielsiege.csv", sep=";")
+            
+            # Clean and process the data
+            spieler_namen = df_siege['Spielername'].tolist()
+            datum_spalten = [col for col in df_siege.columns if col != 'Spielername']
+            
+            # Convert date columns to datetime
+            datum_mapping = {}
+            
+            # German month mapping for robustness
+            german_months = {
+                'Jan': 'Jan', 'Feb': 'Feb', 'Mrz': 'Mar', 'Apr': 'Apr',
+                'Mai': 'May', 'Jun': 'Jun', 'Jul': 'Jul', 'Aug': 'Aug',
+                'Sep': 'Sep', 'Okt': 'Oct', 'Nov': 'Nov', 'Dez': 'Dec'
+            }
+            
+            for datum_str in datum_spalten:
+                try:
+                    # Parse dates - try different formats
+                    datum_clean = datum_str.strip()
+                    if datum_clean:
+                        # Convert German months to English for pandas
+                        datum_english = datum_clean
+                        for de_month, en_month in german_months.items():
+                            if de_month in datum_clean:
+                                datum_english = datum_clean.replace(de_month, en_month)
+                                break
+                        
+                        # Try format with year first (e.g., "14. Jan 2025")
+                        if any(year in datum_english for year in ['2024', '2025', '2026']):
+                            parsed_date = pd.to_datetime(datum_english, format="%d. %b %Y")
+                        else:
+                            # Fall back to format without year (e.g., "14. Jan") and assume current year
+                            datum_with_year = f"{datum_english} 2024"
+                            parsed_date = pd.to_datetime(datum_with_year, format="%d. %b %Y")
+                        datum_mapping[datum_str] = parsed_date
+                except Exception as e:
+                    # Skip invalid dates and show which ones fail
+                    st.sidebar.error(f"❌ Datum nicht erkannt: {datum_str}")
+                    continue
+            
+            # Create a melted dataframe for easier analysis
+            melted_data = []
+            for _, row in df_siege.iterrows():
+                spieler = row['Spielername']
+                for datum_str in datum_spalten:
+                    if datum_str in datum_mapping and pd.notna(row[datum_str]) and row[datum_str] == 1:
+                        melted_data.append({
+                            'Spieler': spieler,
+                            'Datum': datum_mapping[datum_str],
+                            'Sieg': 1
+                        })
+            
+            df_melted = pd.DataFrame(melted_data)
+            
+            if len(df_melted) == 0:
+                st.warning("Keine Siegesdaten gefunden. Bitte überprüfen Sie die CSV-Datei.")
+                return
+                
+        except FileNotFoundError:
+            st.error("❌ Datei 'VB_Trainingsspielsiege.csv' nicht gefunden und Datenbank nicht verfügbar!")
+            st.info("Bitte stellen Sie sicher, dass entweder die Datenbank oder die CSV-Datei verfügbar ist.")
+            return
+        except Exception as e:
+            st.error(f"❌ Fehler beim Laden der Daten: {str(e)}")
+            return
     
     # Filter options
     st.sidebar.header("Zeitraum Filter")
@@ -232,10 +257,23 @@ def show():
         st.warning(f"Keine Daten für {filter_text} verfügbar.")
         return
     
-    gesamt_siege = len(df_filtered)
+    # Only count actual victories (where Sieg=True)
+    df_victories = df_filtered[df_filtered['Sieg'] == True]
+    gesamt_siege = len(df_victories)
+    gesamt_teilnahmen = len(df_filtered)
     einzigartige_tage = df_filtered['Datum'].nunique()
     aktive_spieler = df_filtered['Spieler'].nunique()
-    durchschnitt_spieler_pro_training = (gesamt_siege / einzigartige_tage * 2) if einzigartige_tage > 0 else 0
+    
+    # Average players per training (based on victories × 2, since 2 teams play against each other)
+    # Calculate average victories per training day, then multiply by 2
+    if einzigartige_tage > 0:
+        siege_pro_tag = gesamt_siege / einzigartige_tage
+        durchschnitt_spieler_pro_training = siege_pro_tag * 2
+    else:
+        durchschnitt_spieler_pro_training = 0
+    
+    # Victory rate
+    sieg_quote = (gesamt_siege / gesamt_teilnahmen * 100) if gesamt_teilnahmen > 0 else 0
     
     # Main metrics
     col1, col2, col3, col4 = st.columns(4)
@@ -247,10 +285,10 @@ def show():
         st.metric("📅 Trainingstage", einzigartige_tage)
     
     with col3:
-        st.metric("👥 Aktive Spieler", aktive_spieler)
+        st.metric("👥 Ø Spieler/Training", f"{durchschnitt_spieler_pro_training:.1f}")
     
     with col4:
-        st.metric("🏃 Ø Spieler/Training", f"{durchschnitt_spieler_pro_training:.1f}")
+        st.metric("📊 Siegquote", f"{sieg_quote:.1f}%")
     
     # Show current filter
     st.info(f"📊 Anzeige für: **{filter_text}** ({filter_option})")
@@ -310,9 +348,9 @@ def show():
         with col2:
             st.markdown("### 🔥 Heißester Spieler")
             # Find player with longest current winning streak
-            if len(df_filtered) > 0:
+            if len(df_victories) > 0:
                 # Get unique training dates sorted descending (newest first)
-                unique_dates = sorted(df_filtered['Datum'].unique(), reverse=True)
+                unique_dates = sorted(df_victories['Datum'].unique(), reverse=True)
                 
                 # Calculate current winning streaks for each player
                 player_streaks = {}
@@ -320,12 +358,20 @@ def show():
                     streak = 0
                     # Go through dates from newest to oldest
                     for datum in unique_dates:
-                        player_wins_on_date = len(df_filtered[(df_filtered['Spieler'] == spieler) & (df_filtered['Datum'] == datum)])
+                        # Count only actual victories on this date
+                        player_wins_on_date = len(df_victories[(df_victories['Spieler'] == spieler) & 
+                                                               (df_victories['Datum'] == datum) & 
+                                                               (df_victories['Sieg'] == True)])
                         if player_wins_on_date > 0:
                             streak += player_wins_on_date
                         else:
-                            # Break the streak if no win on this date
-                            break
+                            # Check if player participated but didn't win
+                            player_participated = len(df_filtered[(df_filtered['Spieler'] == spieler) & 
+                                                                 (df_filtered['Datum'] == datum)]) > 0
+                            if player_participated:
+                                # Break streak if participated but didn't win
+                                break
+                            # If didn't participate, continue streak
                     player_streaks[spieler] = streak
                 
                 # Find player with highest current streak
@@ -345,6 +391,8 @@ def show():
                         st.info("**Keine aktive Serie**\n\n🔥 0 Siege in Serie")
                 else:
                     st.info("**Keine Daten**\n\n📊 Keine Serien verfügbar")
+            else:
+                st.info("**Keine Siege**\n\n🔥 Noch keine Siege verzeichnet")
         
         with col3:
             st.markdown("### 📊 Durchschnitt")
@@ -441,22 +489,28 @@ def show():
         
         with col1:
             # Players per training day (victories * 2 because of 2 teams)
-            if len(df_filtered) > 0:
-                daily_stats = df_filtered.groupby('Datum').size().reset_index()
+            if len(df_victories) > 0:
+                # Calculate daily statistics based on actual victories
+                daily_stats = df_victories.groupby('Datum').size().reset_index()
                 daily_stats.columns = ['Datum', 'Siege']
                 daily_stats['Spieler'] = daily_stats['Siege'] * 2  # 2 teams per training
                 daily_stats = daily_stats.sort_values('Datum')
                 
-                fig1 = px.line(daily_stats, x='Datum', y='Spieler',
-                              title='Spieler pro Training',
-                              line_shape='spline')
-                fig1.update_traces(line_color='#1e3c72', line_width=3, mode='lines+markers')
-                fig1.update_layout(
-                    plot_bgcolor='rgba(0,0,0,0)',
-                    paper_bgcolor='rgba(0,0,0,0)',
-                    yaxis_title="Anzahl Spieler"
-                )
-                st.plotly_chart(fig1, use_container_width=True)
+                if len(daily_stats) > 0:
+                    fig1 = px.line(daily_stats, x='Datum', y='Spieler',
+                                  title='Spieler pro Training (basierend auf Siegen)',
+                                  line_shape='spline')
+                    fig1.update_traces(line_color='#1e3c72', line_width=3, mode='lines+markers')
+                    fig1.update_layout(
+                        plot_bgcolor='rgba(0,0,0,0)',
+                        paper_bgcolor='rgba(0,0,0,0)',
+                        yaxis_title="Anzahl Spieler"
+                    )
+                    st.plotly_chart(fig1, use_container_width=True)
+                else:
+                    st.info("Keine Siegesdaten für Chart verfügbar.")
+            else:
+                st.info("Keine Siegesdaten verfügbar.")
         
         with col2:
             # Player comparison bar chart (sorted descending - best on top)
@@ -476,14 +530,14 @@ def show():
                 st.plotly_chart(fig2, use_container_width=True)
         
         # Weekly/Monthly analysis if enough data
-        if len(df_filtered) > 0:
+        if len(df_victories) > 0:
             st.subheader("📊 Zeitraum-Analyse")
             
             # Group by week if we have enough data
-            if df_filtered['Datum'].nunique() > 7:
-                # Create a better weekly analysis
-                df_weekly = df_filtered.copy()
-                df_weekly['Woche'] = df_filtered['Datum'].dt.to_period('W-MON')  # Week starting Monday
+            if df_victories['Datum'].nunique() > 1:  # Changed from 7 to 1 to show analysis even with few dates
+                # Create a better weekly analysis based on victories only
+                df_weekly = df_victories.copy()
+                df_weekly['Woche'] = df_victories['Datum'].dt.to_period('W-MON')  # Week starting Monday
                 
                 # Get all weeks in the data
                 all_weeks = sorted(df_weekly['Woche'].unique())
@@ -495,10 +549,11 @@ def show():
                 weekly_data = []
                 for week in all_weeks:
                     for player in top_performers:
-                        # Count victories for this player in this week
+                        # Count victories for this player in this week (only actual victories)
                         player_week_victories = len(df_weekly[
                             (df_weekly['Woche'] == week) & 
-                            (df_weekly['Spieler'] == player)
+                            (df_weekly['Spieler'] == player) &
+                            (df_weekly['Sieg'] == True)  # Only count actual victories
                         ])
                         weekly_data.append({
                             'Woche': str(week),
@@ -508,7 +563,7 @@ def show():
                 
                 weekly_df = pd.DataFrame(weekly_data)
                 
-                if len(weekly_df) > 0:
+                if len(weekly_df) > 0 and weekly_df['Siege'].sum() > 0:
                     # Clean up week format for display - make it more readable
                     weekly_df['Woche_Display'] = weekly_df['Woche'].apply(
                         lambda x: f"KW {str(x).split('-W')[1]}" if '-W' in str(x) else str(x)
@@ -529,6 +584,10 @@ def show():
                     )
                     fig3.update_traces(line_width=2, marker_size=6)
                     st.plotly_chart(fig3, use_container_width=True)
+                else:
+                    st.info("Nicht genügend Siegesdaten für Zeitraum-Analyse verfügbar.")
+            else:
+                st.info("Mindestens 2 verschiedene Trainingstage für Zeitraum-Analyse erforderlich.")
     
     with tab3:
         st.subheader("📋 Detailansicht")
@@ -569,9 +628,17 @@ def show():
             
             with col2:
                 st.markdown("**Aktivste Trainingstage:**")
-                daily_summary = df_filtered.groupby('Datum').size().sort_values(ascending=False)
-                for i, (datum, siege) in enumerate(daily_summary.head(5).items()):
-                    st.write(f"{i+1}. {datum.strftime('%d.%m.%Y')}: {siege} Siege")
+                # Calculate based on victories × 2 (number of players per training)
+                daily_victories = df_victories.groupby('Datum').size().reset_index()
+                daily_victories.columns = ['Datum', 'Siege']
+                daily_victories['Spieler'] = daily_victories['Siege'] * 2  # 2 teams per training
+                daily_victories = daily_victories.sort_values('Spieler', ascending=False)
+                
+                for i, (_, row) in enumerate(daily_victories.head(5).iterrows()):
+                    datum_str = row['Datum'].strftime('%d.%m.%Y')
+                    spieler_count = row['Spieler']
+                    siege_count = row['Siege']
+                    st.write(f"{i+1}. {datum_str}: {spieler_count} Spieler ({siege_count} Siege)")
         else:
             st.info("Keine Daten für den gewählten Zeitraum verfügbar.")
     
@@ -587,62 +654,62 @@ def show():
             help="Wählen Sie das Datum des Trainings aus"
         )
         
-        # Convert date to string format that matches CSV columns
-        date_str = selected_date.strftime("%d. %b %Y")
-        german_months = {
-            'Jan': 'Jan', 'Feb': 'Feb', 'Mar': 'Mrz', 'Apr': 'Apr',
-            'May': 'Mai', 'Jun': 'Jun', 'Jul': 'Jul', 'Aug': 'Aug',
-            'Sep': 'Sep', 'Oct': 'Okt', 'Nov': 'Nov', 'Dec': 'Dez'
-        }
+        # Convert date to database format (YYYY-MM-DD)
+        date_str = selected_date.strftime("%Y-%m-%d")
+        date_display = selected_date.strftime("%d.%m.%Y")
         
-        # Convert English months to German
-        for en_month, de_month in german_months.items():
-            if en_month in date_str:
-                date_str = date_str.replace(en_month, de_month)
-                break
+        st.write(f"**Gewähltes Datum:** {date_display}")
         
-        st.write(f"**Gewähltes Datum:** {date_str}")
-        
-        # Check if date already exists in CSV
-        existing_columns = [col for col in df_siege.columns if col != 'Spielername']
-        date_exists = date_str in existing_columns
+        # Check if entries already exist for this date
+        existing_entries = db.get_training_day_entries(date_str)
+        date_exists = len(existing_entries) > 0
         
         if date_exists:
-            st.warning(f"⚠️ Das Datum {date_str} existiert bereits in der CSV-Datei!")
+            st.warning(f"⚠️ Für den {date_display} existieren bereits Einträge!")
             
-            # Show current entries for this date
+            # Show current entries for this date - only winners
             st.markdown("**Aktuelle Einträge für diesen Tag:**")
-            current_entries = df_siege[['Spielername', date_str]].copy()
-            current_entries.columns = ['Spieler', 'Siege']
-            current_entries = current_entries[current_entries['Siege'] == 1]
             
-            if len(current_entries) > 0:
-                for _, player in current_entries.iterrows():
-                    st.write(f"🏆 {player['Spieler']}")
-            else:
-                st.write("Keine Siege für diesen Tag eingetragen.")
+            # Group entries by victory status - only show winners
+            gewinner = [entry['spielername'] for entry in existing_entries if entry['hat_gewonnen']]
+            
+            st.markdown("**🏆 Gewinner:**")
+            for spieler in gewinner:
+                st.write(f"✅ {spieler}")
+            if not gewinner:
+                st.write("_Keine Gewinner eingetragen_")
+            
+            # Option to delete existing entries
+            st.markdown("---")
+            if st.button("🗑️ Bestehende Einträge löschen", type="secondary"):
+                success, message = db.delete_training_day(date_str)
+                if success:
+                    st.success(message)
+                    st.rerun()
+                else:
+                    st.error(message)
         
         st.markdown("---")
         
         # Player selection
         st.subheader("👥 Spieler auswählen")
-        st.write("Wählen Sie alle Spieler aus, die an diesem Tag Siege erhalten haben:")
+        st.write("Wählen Sie alle Spieler aus, die an diesem Tag **Siege** erhalten haben:")
         
         # Create checkboxes for all players
         col_count = 3
         cols = st.columns(col_count)
         selected_players = []
         
+        # Get current winners if date exists
+        current_winners = []
+        if date_exists:
+            current_winners = [entry['spielername'] for entry in existing_entries if entry['hat_gewonnen']]
+        
         for i, spieler in enumerate(spieler_namen):
             col_idx = i % col_count
             with cols[col_idx]:
-                # Check if player already has an entry for this date
-                current_value = False
-                if date_exists:
-                    try:
-                        current_value = df_siege[df_siege['Spielername'] == spieler][date_str].iloc[0] == 1
-                    except (IndexError, KeyError):
-                        current_value = False
+                # Check if player is currently a winner for this date
+                current_value = spieler in current_winners
                 
                 is_selected = st.checkbox(
                     spieler, 
@@ -655,50 +722,56 @@ def show():
         
         st.markdown("---")
         
-        # Summary
-        if selected_players:
-            st.subheader("📊 Zusammenfassung")
-            st.write(f"**Datum:** {date_str}")
-            st.write(f"**Anzahl Spieler mit Siegen:** {len(selected_players)}")
-            st.write("**Gewählte Spieler:**")
-            for player in selected_players:
-                st.write(f"🏆 {player}")
-        
         # Save button
         if st.button("💾 Einträge speichern", type="primary", use_container_width=True):
-            try:
-                # Load current CSV
-                df_current = pd.read_csv("VB_Trainingsspielsiege.csv", sep=";")
-                
-                # Add new column if date doesn't exist
-                if date_str not in df_current.columns:
-                    df_current[date_str] = ""
-                
-                # Update entries for selected players
-                for spieler in spieler_namen:
-                    mask = df_current['Spielername'] == spieler
-                    if spieler in selected_players:
-                        df_current.loc[mask, date_str] = 1
+            if not selected_players:
+                st.warning("⚠️ Bitte wählen Sie mindestens einen Gewinner aus!")
+            elif len(selected_players) == len(spieler_namen):
+                st.warning("⚠️ Nicht alle Spieler können gewinnen! Bitte wählen Sie nur die Gewinner aus.")
+            else:
+                try:
+                    # Save to database
+                    success, message = db.add_training_day_entries(
+                        datum=date_str,
+                        spieler_mit_sieg=selected_players,
+                        alle_spieler=spieler_namen
+                    )
+                    
+                    if success:
+                        st.success(message)
+                        st.balloons()
+                        
+                        # Show what was saved
+                        st.info(f"""
+                        **Gespeichert für {date_display}:**
+                        - 🏆 {len(selected_players)} Gewinner
+                        - 😔 {len(spieler_namen) - len(selected_players)} Verlierer
+                        - 📊 Gesamt: {len(spieler_namen)} Spieler
+                        """)
+                        
+                        # Refresh page to show updated data
+                        st.info("🔄 Seite wird automatisch aktualisiert...")
+                        st.rerun()
+                        
                     else:
-                        df_current.loc[mask, date_str] = ""
-                
-                # Save updated CSV
-                df_current.to_csv("VB_Trainingsspielsiege.csv", sep=";", index=False)
-                
-                st.success(f"✅ Einträge für {date_str} erfolgreich gespeichert!")
-                st.balloons()
-                
-                # Refresh page to show updated data
-                st.info("🔄 Seite wird automatisch aktualisiert...")
-                st.rerun()
-                
-            except Exception as e:
-                st.error(f"❌ Fehler beim Speichern: {str(e)}")
+                        st.error(message)
+                        
+                except Exception as e:
+                    st.error(f"❌ Fehler beim Speichern: {str(e)}")
         
         # Data quality info
-        st.info(f"""
-        **📊 Aktuelle Datenbank:**
-        - Verfügbare Trainingstage: {len(datum_spalten)}
-        - Registrierte Spieler: {len(spieler_namen)}
-        - Siege gesamt: {len(df_melted)}
-        """) 
+        st.markdown("---")
+        st.subheader("📊 Aktuelle Statistiken")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric("👥 Verfügbare Spieler", len(spieler_namen))
+        
+        with col2:
+            trainings_count = df_filtered['Datum'].nunique() if len(df_filtered) > 0 else 0
+            st.metric("📅 Trainingstage", trainings_count)
+        
+        with col3:
+            total_victories = len(df_victories) if len(df_victories) > 0 else 0
+            st.metric("🏆 Siege gesamt", total_victories) 

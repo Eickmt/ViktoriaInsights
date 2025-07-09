@@ -3,6 +3,11 @@ import pandas as pd
 from datetime import datetime, timedelta
 import calendar
 import os
+import sys
+
+# Add the parent directory to the path to import database helper
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from database_helper import db
 
 def show():
     st.title("📅 Teamkalender & Geburtstage")
@@ -133,97 +138,60 @@ def show():
     </style>
     """, unsafe_allow_html=True)
     
-    # Load real birthday data from CSV
+    # Load birthday data from database
     try:
-        # Try to load the CSV file
-        csv_path = "VB_Geburtstage.csv"
-        if os.path.exists(csv_path):
-            # Try different encodings, starting with latin-1 since we know it works
-            encodings_to_try = ['latin-1', 'utf-8-sig', 'utf-8', 'cp1252']
-            df_geburtstage_raw = None
-            
-            for encoding in encodings_to_try:
+        # Lade Geburtstage aus der Datenbank
+        df_geburtstage_raw = db.get_birthdays()
+        
+        if df_geburtstage_raw is not None and len(df_geburtstage_raw) > 0:
+            # Convert to our expected format
+            geburtstage = []
+            for _, row in df_geburtstage_raw.iterrows():
                 try:
-                    df_geburtstage_raw = pd.read_csv(csv_path, sep=';', encoding=encoding)
-                    break
-                except Exception:
+                    # Determine position based on age (just for display purposes)
+                    birth_year = row['Geburtstag_parsed'].year
+                    current_year = datetime.now().year
+                    age = current_year - birth_year
+                    
+                    if age <= 20:
+                        position = "Baby"
+                    elif age <= 25:
+                        position = "Youngster"
+                    elif age <= 30:
+                        position = "Prime Time"
+                    elif age <= 35:
+                        position = "Routinier"
+                    else:
+                        position = "Opa"
+                    
+                    geburtstage.append({
+                        "Name": str(row['Name']).strip(),
+                        "Datum": row['Geburtstag_parsed'].strftime('%Y-%m-%d'),
+                        "Position": position
+                    })
+                except Exception as e:
+                    # Skip entries that can't be parsed, but continue with others
+                    st.warning(f"⚠️ Fehler beim Verarbeiten eines Geburtstagseintrags: {e}")
                     continue
-            
-            if df_geburtstage_raw is not None:
-                # Convert to our expected format
-                geburtstage = []
-                for _, row in df_geburtstage_raw.iterrows():
-                    # Parse German date format DD.MM.YYYY
-                    try:
-                        geburtstag_str = str(row['Geburtstag']).strip()
-                        
-                        # Handle different date formats
-                        if '.' in geburtstag_str:
-                            parts = geburtstag_str.split('.')
-                            if len(parts) == 3:
-                                day, month, year = parts
-                                # Clean up parts
-                                day = day.zfill(2)
-                                month = month.zfill(2)
-                                
-                                # Handle 2-digit years
-                                if len(year) == 2:
-                                    year = f"19{year}" if int(year) > 50 else f"20{year}"
-                                
-                                iso_date = f"{year}-{month}-{day}"
-                                
-                                # Determine position based on age (just for display purposes)
-                                birth_year = int(year)
-                                current_year = datetime.now().year
-                                age = current_year - birth_year
-                                
-                                if age <= 20:
-                                    position = "Baby"
-                                elif age <= 25:
-                                    position = "Youngster"
-                                elif age <= 30:
-                                    position = "Prime Time"
-                                elif age <= 35:
-                                    position = "Routinier"
-                                else:
-                                    position = "Opa"
-                                
-                                geburtstage.append({
-                                    "Name": str(row['Name']).strip(),
-                                    "Datum": iso_date,
-                                    "Position": position
-                                })
-                    except Exception as e:
-                        # Skip entries that can't be parsed, but continue with others
-                        continue
-            else:
-                st.error("❌ CSV konnte mit keinem Encoding gelesen werden!")
-                # Fallback to sample data
-                geburtstage = [
-                    {"Name": "Max Mustermann", "Datum": "1995-12-15", "Position": "Torwart"},
-                    {"Name": "Thomas Schmidt", "Datum": "1992-01-22", "Position": "Verteidiger"},
-                    {"Name": "Michael Weber", "Datum": "1993-03-08", "Position": "Mittelfeld"},
-                    {"Name": "Stefan König", "Datum": "1991-07-14", "Position": "Stürmer"},
-                ]
         else:
-            st.error("❌ VB_Geburtstage.csv nicht gefunden! Verwende Beispieldaten.")
-            # Fallback to sample data
-            geburtstage = [
-                {"Name": "Max Mustermann", "Datum": "1995-12-15", "Position": "Torwart"},
-                {"Name": "Thomas Schmidt", "Datum": "1992-01-22", "Position": "Verteidiger"},
-                {"Name": "Michael Weber", "Datum": "1993-03-08", "Position": "Mittelfeld"},
-                {"Name": "Stefan König", "Datum": "1991-07-14", "Position": "Stürmer"},
-            ]
+            st.error("❌ Keine Geburtstage in der Datenbank gefunden")
+            return
     except Exception as e:
         st.error(f"❌ Fehler beim Laden der Geburtstagsdaten: {e}")
-        # Fallback to sample data
-        geburtstage = [
-            {"Name": "Max Mustermann", "Datum": "1995-12-15", "Position": "Torwart"},
-            {"Name": "Thomas Schmidt", "Datum": "1992-01-22", "Position": "Verteidiger"},
-        ]
+        return
     
-    # Convert to DataFrame
+    # Convert to DataFrame and ensure we have data
+    if not geburtstage:
+        st.error("❌ Keine gültigen Geburtstagsdaten verfügbar")
+        return
+        
     df_geburtstage = pd.DataFrame(geburtstage)
+    
+    # Ensure the 'Datum' column exists
+    if 'Datum' not in df_geburtstage.columns:
+        st.error("❌ Fehler: 'Datum' Spalte nicht gefunden in den Geburtstagsdaten")
+        st.write("Verfügbare Spalten:", df_geburtstage.columns.tolist())
+        return
     df_geburtstage['Datum'] = pd.to_datetime(df_geburtstage['Datum'])
     df_geburtstage['Geburtstag_dieses_Jahr'] = df_geburtstage['Datum'].apply(
         lambda x: datetime(datetime.now().year, x.month, x.day)
@@ -239,7 +207,7 @@ def show():
     df_geburtstage = df_geburtstage.sort_values('Tage_bis_Geburtstag')
     
     # Tabs for different views
-    tab1, tab2, tab3 = st.tabs(["🎂 Anstehende Geburtstage", "📊 Geburtstagsübersicht", "➕ Neuen Geburtstag hinzufügen"])
+    tab1, tab2 = st.tabs(["🎂 Anstehende Geburtstage", "📊 Geburtstagsübersicht"])
     
     with tab1:
         st.subheader("Nächste Geburtstage")
@@ -428,78 +396,4 @@ def show():
             st.metric("🗓️ Diesen Monat", f"{geburtstage_diesen_monat} Geburtstage")
         
         with col4:
-            st.metric("👥 Spieler gesamt", len(df_geburtstage))
-    
-    with tab3:
-        st.subheader("➕ Neuen Geburtstag hinzufügen")
-        
-        with st.form("add_birthday"):
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                name = st.text_input("Name des Spielers")
-            
-            with col2:
-                geburtsdatum = st.date_input("Geburtsdatum")
-            
-            submitted = st.form_submit_button("Geburtstag hinzufügen")
-            
-            if submitted:
-                if name and geburtsdatum:
-                    try:
-                        # Format the new entry
-                        csv_format = f"{name};{geburtsdatum.strftime('%d.%m.%Y')}"
-                        
-                        # Check if CSV file exists
-                        csv_path = "VB_Geburtstage.csv"
-                        if os.path.exists(csv_path):
-                            # Read existing file to check for duplicates
-                            try:
-                                existing_df = pd.read_csv(csv_path, sep=';', encoding='latin-1')
-                                
-                                # Check if name already exists
-                                if name in existing_df['Name'].values:
-                                    st.warning(f"⚠️ {name} ist bereits in der Liste vorhanden!")
-                                else:
-                                    # Try to append new entry to the CSV file
-                                    try:
-                                        with open(csv_path, 'a', encoding='latin-1', newline='') as file:
-                                            file.write(f"\n{csv_format}")
-                                        
-                                        st.success(f"✅ {name} wurde erfolgreich hinzugefügt!")
-                                        st.balloons()
-                                        
-                                        # Show the added entry
-                                        st.info(f"📝 Neuer Eintrag: {csv_format}")
-                                        
-                                        # Suggest refreshing the page to see changes
-                                        st.info("🔄 Aktualisieren Sie die Seite, um den neuen Eintrag in der Liste zu sehen.")
-                                        
-                                    except PermissionError:
-                                        st.error("❌ **Permission-Fehler:** Kann nicht in die CSV-Datei schreiben!")
-                                        st.warning("🔒 **Mögliche Lösungen:**")
-                                        st.write("• Schließen Sie Excel oder andere Programme, die die CSV-Datei verwenden")
-                                        st.write("• Überprüfen Sie, ob die Datei schreibgeschützt ist")
-                                        st.write("• Starten Sie die App als Administrator")
-                                        st.info("💡 **Manuelle Eingabe:** Fügen Sie diese Zeile zur CSV-Datei hinzu:")
-                                        st.code(csv_format)
-                                        
-                                    except Exception as write_error:
-                                        st.error(f"❌ Schreibfehler: {write_error}")
-                                        st.info("💡 **Manuelle Eingabe erforderlich:**")
-                                        st.code(f"Für CSV-Datei: {csv_format}")
-                                     
-                            except Exception as e:
-                                st.error(f"❌ Fehler beim Lesen der bestehenden Datei: {e}")
-                                st.info("💡 Fallback: Manuelle Eingabe erforderlich")
-                                st.code(f"Für CSV-Datei: {csv_format}")
-                        
-                    except Exception as e:
-                        st.error(f"❌ Unerwarteter Fehler: {e}")
-                        # Fallback to manual instructions
-                        csv_format = f"{name};{geburtsdatum.strftime('%d.%m.%Y')}"
-                        st.info("💡 Bitte manuell zur CSV-Datei hinzufügen:")
-                        st.code(f"Für CSV-Datei: {csv_format}")
-                        
-                else:
-                    st.error("❌ Bitte alle Felder ausfüllen.") 
+            st.metric("👥 Spieler gesamt", len(df_geburtstage)) 

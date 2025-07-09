@@ -1,10 +1,14 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime, timedelta
 import plotly.express as px
+import plotly.graph_objects as go
+from datetime import datetime, timedelta
 import os
-import requests
-import team_scraper  # Neues Scraping-Modul
+import sys
+
+# Add the parent directory to the path to import database helper
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from database_helper import db
 
 @st.cache_data(ttl=600)  # Cache für 10 Minuten
 def get_weather_data(city="Buchholz", api_key=None):
@@ -64,179 +68,61 @@ def get_weather_emoji(weather_main):
 def show():
     st.title("⚽ Willkommen bei ViktoriaInsights")
     
-    # Load real birthday data from CSV for next birthday calculation
+    # Load real birthday data from database
     next_birthday_name = "Niemand"
     next_birthday_days = 0
     
-    # Debug information
-    debug_info = []
-    
     try:
-        csv_path = "VB_Geburtstage.csv"
-        debug_info.append(f"🔍 Suche CSV-Datei: {csv_path}")
+        # Lade Geburtstage aus der Datenbank
+        df_geburtstage_raw = db.get_birthdays()
         
-        if os.path.exists(csv_path):
-            debug_info.append("✅ CSV-Datei gefunden")
-            
-            # Try different encodings
-            encodings_to_try = ['utf-8', 'utf-8-sig', 'latin-1', 'cp1252']
-            df_geburtstage_raw = None
-            
-            for encoding in encodings_to_try:
+        if df_geburtstage_raw is not None and len(df_geburtstage_raw) > 0:
+            # Convert to our expected format
+            geburtstage = []
+            for _, row in df_geburtstage_raw.iterrows():
                 try:
-                    df_geburtstage_raw = pd.read_csv(csv_path, sep=';', encoding=encoding)
-                    debug_info.append(f"✅ CSV gelesen mit {encoding}")
-                    break
+                    geburtstage.append({
+                        "Name": str(row['Name']).strip(),
+                        "Datum": row['Geburtstag_parsed'].strftime('%Y-%m-%d')
+                    })
                 except Exception as e:
-                    debug_info.append(f"❌ Fehler mit {encoding}: {str(e)[:50]}")
                     continue
             
-            if df_geburtstage_raw is not None:
-                debug_info.append(f"📊 {len(df_geburtstage_raw)} Einträge gefunden")
-                debug_info.append(f"🔧 Spalten: {list(df_geburtstage_raw.columns)}")
+            if geburtstage:
+                df_geburtstage = pd.DataFrame(geburtstage)
+                df_geburtstage['Datum'] = pd.to_datetime(df_geburtstage['Datum'])
+                df_geburtstage['Geburtstag_dieses_Jahr'] = df_geburtstage['Datum'].apply(
+                    lambda x: datetime(datetime.now().year, x.month, x.day)
+                )
                 
-                # Show first few entries for debugging
-                if len(df_geburtstage_raw) > 0:
-                    first_entry = df_geburtstage_raw.iloc[0]
-                    debug_info.append(f"📝 Erstes Beispiel: {first_entry['Name']} - {first_entry['Geburtstag']}")
+                # Calculate days until birthday
+                today = datetime.now()
+                df_geburtstage['Tage_bis_Geburtstag'] = df_geburtstage['Geburtstag_dieses_Jahr'].apply(
+                    lambda x: (x - today).days if (x - today).days >= 0 else (x.replace(year=x.year + 1) - today).days
+                )
                 
-                # Convert to our expected format
-                geburtstage = []
-                for _, row in df_geburtstage_raw.iterrows():
-                    try:
-                        geburtstag_str = str(row['Geburtstag']).strip()
-                        debug_info.append(f"🔄 Verarbeite: {row['Name']} - {geburtstag_str}")
-                        
-                        # Handle different date formats
-                        if '.' in geburtstag_str:
-                            parts = geburtstag_str.split('.')
-                            if len(parts) == 3:
-                                day, month, year = parts
-                                # Clean up parts
-                                day = day.zfill(2)
-                                month = month.zfill(2)
-                                
-                                # Handle 2-digit years
-                                if len(year) == 2:
-                                    year = f"19{year}" if int(year) > 50 else f"20{year}"
-                                
-                                iso_date = f"{year}-{month}-{day}"
-                                
-                                geburtstage.append({
-                                    "Name": str(row['Name']).strip(),
-                                    "Datum": iso_date
-                                })
-                                debug_info.append(f"✅ Erfolgreich: {row['Name']} - {iso_date}")
-                            else:
-                                debug_info.append(f"❌ Ungültiges Datumsformat: {geburtstag_str}")
-                        else:
-                            debug_info.append(f"❌ Kein Punkt im Datum gefunden: {geburtstag_str}")
-                    except Exception as e:
-                        debug_info.append(f"❌ Fehler bei {row.get('Name', 'UNBEKANNT')}: {str(e)}")
-                        continue
-                
-                debug_info.append(f"🎯 {len(geburtstage)} Geburtstage erfolgreich verarbeitet")
-                
-                if geburtstage:
-                    df_geburtstage = pd.DataFrame(geburtstage)
-                    df_geburtstage['Datum'] = pd.to_datetime(df_geburtstage['Datum'])
-                    df_geburtstage['Geburtstag_dieses_Jahr'] = df_geburtstage['Datum'].apply(
-                        lambda x: datetime(datetime.now().year, x.month, x.day)
-                    )
-                    
-                    # Calculate days until birthday
-                    today = datetime.now()
-                    df_geburtstage['Tage_bis_Geburtstag'] = df_geburtstage['Geburtstag_dieses_Jahr'].apply(
-                        lambda x: (x - today).days if (x - today).days >= 0 else (x.replace(year=x.year + 1) - today).days
-                    )
-                    
-                    # Get next birthday
-                    df_geburtstage = df_geburtstage.sort_values('Tage_bis_Geburtstag')
-                    if len(df_geburtstage) > 0:
-                        next_birthday = df_geburtstage.iloc[0]
-                        next_birthday_name = next_birthday['Name']
-                        next_birthday_days = next_birthday['Tage_bis_Geburtstag']
-                        debug_info.append(f"🎉 Nächster Geburtstag: {next_birthday_name} in {next_birthday_days} Tagen")
-                else:
-                    debug_info.append("❌ Keine gültigen Geburtstage gefunden")
-            else:
-                debug_info.append("❌ CSV konnte mit keinem Encoding gelesen werden")
-        else:
-            debug_info.append("❌ CSV-Datei nicht gefunden")
-            debug_info.append(f"📁 Aktuelles Verzeichnis: {os.getcwd()}")
-            debug_info.append(f"📋 Dateien im Verzeichnis: {os.listdir('.')}")
+                # Get next birthday
+                df_geburtstage = df_geburtstage.sort_values('Tage_bis_Geburtstag')
+                if len(df_geburtstage) > 0:
+                    next_birthday = df_geburtstage.iloc[0]
+                    next_birthday_name = next_birthday['Name']
+                    next_birthday_days = next_birthday['Tage_bis_Geburtstag']
+        
     except Exception as e:
-        debug_info.append(f"❌ Unerwarteter Fehler: {str(e)}")
+        st.error(f"❌ Fehler beim Laden der Geburtstagsdaten: {str(e)}")
+        next_birthday_name = "Keine Daten"
+        next_birthday_days = 0
     
-    # Load real training data for training quote calculation
-    training_participants = 0
-    training_delta = 0
-    training_delta_text = ""
-    
+    # Load real training data from database
     try:
-        # Load training victories data
-        df_training = pd.read_csv("VB_Trainingsspielsiege.csv", sep=";")
-        
-        # Get date columns (exclude Spielername)
-        date_columns = [col for col in df_training.columns if col != 'Spielername']
-        
-        if len(date_columns) > 0:
-            # Convert date columns to datetime for sorting
-            date_mapping = {}
-            german_months = {
-                'Jan': 'Jan', 'Feb': 'Feb', 'Mrz': 'Mar', 'Apr': 'Apr',
-                'Mai': 'May', 'Jun': 'Jun', 'Jul': 'Jul', 'Aug': 'Aug',
-                'Sep': 'Sep', 'Okt': 'Oct', 'Nov': 'Nov', 'Dez': 'Dec'
-            }
-            
-            for date_str in date_columns:
-                try:
-                    # Convert German months to English
-                    date_english = date_str
-                    for de_month, en_month in german_months.items():
-                        if de_month in date_str:
-                            date_english = date_str.replace(de_month, en_month)
-                            break
-                    
-                    # Parse date
-                    if any(year in date_english for year in ['2024', '2025', '2026']):
-                        parsed_date = pd.to_datetime(date_english, format="%d. %b %Y")
-                    else:
-                        date_with_year = f"{date_english} 2024"
-                        parsed_date = pd.to_datetime(date_with_year, format="%d. %b %Y")
-                    
-                    date_mapping[date_str] = parsed_date
-                except:
-                    continue
-            
-            if date_mapping:
-                # Sort dates to get the most recent training
-                sorted_dates = sorted(date_mapping.items(), key=lambda x: x[1], reverse=True)
-                
-                # Get participants for latest training (2 * number of victories)
-                latest_training_date = sorted_dates[0][0]
-                latest_victories = df_training[latest_training_date].sum()
-                training_participants = int(latest_victories * 2) if pd.notna(latest_victories) else 0
-                
-                # Calculate delta compared to previous training
-                if len(sorted_dates) > 1:
-                    previous_training_date = sorted_dates[1][0]
-                    previous_victories = df_training[previous_training_date].sum()
-                    previous_participants = int(previous_victories * 2) if pd.notna(previous_victories) else 0
-                    
-                    training_delta = training_participants - previous_participants
-                    if training_delta > 0:
-                        training_delta_text = f"+ {training_delta}"
-                    elif training_delta < 0:
-                        training_delta_text = f"{training_delta}"
-                    else:
-                        training_delta_text = "±0"
-                else:
-                    training_delta_text = "Erstes Training"
-        
+        training_stats = db.get_training_statistics()
+        training_participants = training_stats['latest_training_participants']
+        training_delta = training_stats['training_delta']
+        training_delta_text = training_stats['training_delta_text']
     except Exception as e:
-        # Fallback to default values if CSV can't be loaded
+        # Fallback to default values if database can't be loaded
         training_participants = 0
+        training_delta = 0
         training_delta_text = "Keine Daten"
     
     # Calculate current donkey of the week based on penalties
@@ -245,38 +131,38 @@ def show():
     donkey_penalty_count = 0
     
     try:
-        # Load penalty data
-        df_penalties = pd.read_csv("VB_Strafen.csv", sep=";", encoding="utf-8")
-        df_penalties['Datum'] = pd.to_datetime(df_penalties['Datum'], format='%d.%m.%Y')
+        # Load penalty data from database
+        df_penalties = db.get_penalties()
         
-        # Calculate last week's period (Monday to Sunday)
-        today = datetime.now()
-        days_since_monday = today.weekday()  # Monday = 0, Sunday = 6
-        
-        # Last week's Monday
-        last_week_monday = today - timedelta(days=days_since_monday + 7)
-        # Last week's Sunday  
-        last_week_sunday = last_week_monday + timedelta(days=6)
-        
-        # Filter penalties from last week
-        last_week_penalties = df_penalties[
-            (df_penalties['Datum'] >= last_week_monday) & 
-            (df_penalties['Datum'] <= last_week_sunday)
-        ]
-        
-        if len(last_week_penalties) > 0:
-            # Calculate penalty stats per player for last week
-            penalty_stats = last_week_penalties.groupby('Spieler').agg({
-                'Betrag': ['sum', 'count']
-            }).round(2)
-            penalty_stats.columns = ['Gesamt_Betrag', 'Anzahl_Strafen']
-            penalty_stats = penalty_stats.reset_index().sort_values('Gesamt_Betrag', ascending=False)
+        if df_penalties is not None and len(df_penalties) > 0:
+            # Calculate last week's period (Monday to Sunday)
+            today = datetime.now()
+            days_since_monday = today.weekday()  # Monday = 0, Sunday = 6
             
-            # Get the player with highest penalty amount
-            if len(penalty_stats) > 0:
-                current_donkey = penalty_stats.iloc[0]['Spieler']
-                donkey_penalty_amount = penalty_stats.iloc[0]['Gesamt_Betrag']
-                donkey_penalty_count = int(penalty_stats.iloc[0]['Anzahl_Strafen'])
+            # Last week's Monday
+            last_week_monday = today - timedelta(days=days_since_monday + 7)
+            # Last week's Sunday  
+            last_week_sunday = last_week_monday + timedelta(days=6)
+            
+            # Filter penalties from last week
+            last_week_penalties = df_penalties[
+                (df_penalties['Datum'] >= last_week_monday) & 
+                (df_penalties['Datum'] <= last_week_sunday)
+            ]
+            
+            if len(last_week_penalties) > 0:
+                # Calculate penalty stats per player for last week
+                penalty_stats = last_week_penalties.groupby('Spieler').agg({
+                    'Betrag': ['sum', 'count']
+                }).round(2)
+                penalty_stats.columns = ['Gesamt_Betrag', 'Anzahl_Strafen']
+                penalty_stats = penalty_stats.reset_index().sort_values('Gesamt_Betrag', ascending=False)
+                
+                # Get the player with highest penalty amount
+                if len(penalty_stats) > 0:
+                    current_donkey = penalty_stats.iloc[0]['Spieler']
+                    donkey_penalty_amount = penalty_stats.iloc[0]['Gesamt_Betrag']
+                    donkey_penalty_count = int(penalty_stats.iloc[0]['Anzahl_Strafen'])
         
     except Exception as e:
         # Fallback if penalty data can't be loaded

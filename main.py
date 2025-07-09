@@ -8,7 +8,8 @@ from datetime import datetime
 # Add the pages directory to the path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'pages'))
 
-from pages import startseite, teamkalender, trainingsstatistiken, esel_der_woche
+from pages import startseite, teamkalender, trainingsstatistiken, esel_der_woche, database_debug
+from database_helper import db
 
 # Page configuration
 st.set_page_config(
@@ -70,12 +71,12 @@ def show_token_penalty_input():
     </div>
     """, unsafe_allow_html=True)
     
-    # Load real player names from birthday CSV
+    # Load real player names from database
     try:
-        df_players = pd.read_csv("VB_Geburtstage.csv", sep=";", encoding="latin-1")
-        real_players = sorted(df_players['Name'].tolist())
+        real_players = db.get_player_names()
     except Exception as e:
-        # Fallback to default players if CSV can't be loaded
+        st.error(f"❌ Fehler beim Laden der Spielernamen: {str(e)}")
+        # Fallback to default players if database can't be loaded
         real_players = ["Thomas Schmidt", "Max Mustermann", "Michael Weber", 
                        "Stefan König", "Andreas Müller", "Christian Bauer"]
     
@@ -222,7 +223,7 @@ def show_token_penalty_input():
         """
         st.markdown(info_card, unsafe_allow_html=True)
         
-        # Save penalty to CSV
+        # Save penalty to database
         try:
             # Create new penalty entry
             new_penalty = {
@@ -233,24 +234,18 @@ def show_token_penalty_input():
                 'Zusatzinfo': zusatz_info if zusatz_info else 'Token-Eingabe'
             }
             
-            # Try to load existing CSV
-            try:
-                df_existing = pd.read_csv("VB_Strafen.csv", sep=";", encoding="utf-8")
-            except FileNotFoundError:
-                # Create new DataFrame if file doesn't exist
-                df_existing = pd.DataFrame(columns=['Datum', 'Spieler', 'Strafe', 'Betrag', 'Zusatzinfo'])
+            # Save to database
+            success = db.add_penalty(new_penalty)
             
-            # Add new penalty
-            df_new = pd.concat([df_existing, pd.DataFrame([new_penalty])], ignore_index=True)
-            
-            # Save to CSV
-            df_new.to_csv("VB_Strafen.csv", sep=";", index=False, encoding="utf-8")
-            
-            st.success("💾 Strafe wurde in der Datenbank gespeichert!")
-            
-            # Refresh the page to show updated data
-            st.info("🔄 Seite wird aktualisiert...")
-            st.rerun()
+            if success:
+                st.success("💾 Strafe wurde in der Datenbank gespeichert!")
+                
+                # Refresh the page to show updated data
+                st.info("🔄 Seite wird aktualisiert...")
+                st.rerun()
+            else:
+                st.error("❌ Fehler beim Speichern in der Datenbank!")
+                st.info("💡 Die Strafe konnte nicht gespeichert werden, bitte versuchen Sie es erneut.")
             
         except Exception as e:
             st.error(f"❌ Fehler beim Speichern: {str(e)}")
@@ -289,22 +284,15 @@ def show_token_penalty_input():
                 'Zusatzinfo': 'Token-Schnell-Strafe'
             }
             
-            # Try to load existing CSV
-            try:
-                df_existing = pd.read_csv("VB_Strafen.csv", sep=";", encoding="utf-8")
-            except FileNotFoundError:
-                # Create new DataFrame if file doesn't exist
-                df_existing = pd.DataFrame(columns=['Datum', 'Spieler', 'Strafe', 'Betrag', 'Zusatzinfo'])
+            # Save to database
+            success = db.add_penalty(new_penalty)
             
-            # Add new penalty
-            df_new = pd.concat([df_existing, pd.DataFrame([new_penalty])], ignore_index=True)
-            
-            # Save to CSV
-            df_new.to_csv("VB_Strafen.csv", sep=";", index=False, encoding="utf-8")
-            
-            st.success(f"✅ Schnell-Strafe für **{spieler}** hinzugefügt: {strafe_typ} (€{betrag:.2f})")
-            st.info("🔄 Seite wird aktualisiert...")
-            st.rerun()
+            if success:
+                st.success(f"✅ Schnell-Strafe für **{spieler}** hinzugefügt: {strafe_typ} (€{betrag:.2f})")
+                st.info("🔄 Seite wird aktualisiert...")
+                st.rerun()
+            else:
+                st.error("❌ Fehler beim Speichern in der Datenbank!")
             
         except Exception as e:
             st.error(f"❌ Fehler beim Speichern: {str(e)}")
@@ -405,9 +393,9 @@ def main():
         selected = option_menu(
             menu_title="Navigation",
             options=["Startseite", "Teamkalender", 
-                    "Trainingsstatistiken", "Esel der Woche"],
+                    "Trainingsstatistiken", "Esel der Woche", "Datenbank Debug"],
             icons=["house", "calendar", "bar-chart", 
-                  "person-x"],
+                  "person-x", "gear"],
             menu_icon="list",
             default_index=0,
             styles={
@@ -446,6 +434,8 @@ def main():
         trainingsstatistiken.show()
     elif selected == "Esel der Woche":
         esel_der_woche.show()
+    elif selected == "Datenbank Debug":
+        database_debug.show()
 
 if __name__ == "__main__":
     main() 
