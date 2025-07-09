@@ -8,7 +8,7 @@ from datetime import datetime
 # Add the pages directory to the path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'pages'))
 
-from pages import startseite, teamkalender, trainingsstatistiken, esel_der_woche, database_debug
+from pages import startseite, teamkalender, trainingsstatistiken, esel_der_woche
 from database_helper import db
 
 # Page configuration
@@ -393,9 +393,9 @@ def main():
         selected = option_menu(
             menu_title="Navigation",
             options=["Startseite", "Teamkalender", 
-                    "Trainingsstatistiken", "Esel der Woche", "Datenbank Debug"],
+                    "Trainingsstatistiken", "Esel der Woche"],
             icons=["house", "calendar", "bar-chart", 
-                  "person-x", "gear"],
+                  "person-x"],
             menu_icon="list",
             default_index=0,
             styles={
@@ -434,8 +434,6 @@ def main():
         trainingsstatistiken.show()
     elif selected == "Esel der Woche":
         esel_der_woche.show()
-    elif selected == "Datenbank Debug":
-        database_debug.show()
 
 if __name__ == "__main__":
     main() 
