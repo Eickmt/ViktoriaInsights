@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import os
 import sys
+import requests
 
 # Add the parent directory to the path to import database helper
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
