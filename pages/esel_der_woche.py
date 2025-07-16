@@ -127,6 +127,64 @@ def show():
     tab5 = tabs[4] if len(tabs) > 4 else None
     
     with tab1:
+        # TOP 3 CURRENT WEEK PENALTIES
+        st.subheader("🚨 Top 3 Strafen dieser Woche")
+        
+        # Calculate current week penalties
+        try:
+            from datetime import datetime
+            current_week = get_german_now_naive().isocalendar()[1]
+            current_year = get_german_now_naive().year
+            
+            # Filter penalties for current week
+            current_week_penalties = df_strafen[
+                (df_strafen['Datum'].dt.isocalendar().week == current_week) &
+                (df_strafen['Datum'].dt.year == current_year)
+            ]
+            
+            if len(current_week_penalties) > 0:
+                # Calculate player stats for current week
+                week_stats = current_week_penalties.groupby('Spieler').agg({
+                    'Betrag': ['sum', 'count']
+                }).round(2)
+                week_stats.columns = ['Gesamt', 'Anzahl']
+                week_stats = week_stats.reset_index().sort_values('Gesamt', ascending=False)
+                
+                # Display top 3
+                col1, col2, col3 = st.columns(3)
+                
+                for i, col in enumerate([col1, col2, col3]):
+                    if i < len(week_stats):
+                        player = week_stats.iloc[i]
+                        rank_emoji = ["🥇", "🥈", "🥉"][i]
+                        rank_color = ["#FFD700", "#C0C0C0", "#CD7F32"][i]  # Gold, Silver, Bronze
+                        
+                        with col:
+                            st.markdown(f"""
+                            <div style='
+                                background: linear-gradient(135deg, {rank_color}33, {rank_color}22);
+                                border-left: 4px solid {rank_color};
+                                padding: 1rem;
+                                border-radius: 8px;
+                                text-align: center;
+                                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                            '>
+                                <div style='font-size: 2rem; margin-bottom: 0.5rem;'>{rank_emoji}</div>
+                                <h4 style='margin: 0; color: #ffffff; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);'>{player['Spieler'].capitalize()}</h4>
+                                <p style='margin: 0.3rem 0; color: #ffffff; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);'><strong>€{player['Gesamt']:.2f}</strong></p>
+                                <p style='margin: 0; color: #ffffff; font-size: 0.9rem; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);'>{int(player['Anzahl'])} Strafen</p>
+                            </div>
+                            """, unsafe_allow_html=True)
+                    else:
+                        with col:
+                            st.info(f"**{['🥇 Platz 1', '🥈 Platz 2', '🥉 Platz 3'][i]}**\n\nNoch keine Strafen")
+            else:
+                st.success(f"🎉 Noch keine Strafen in KW {current_week}! Alle waren brav!")
+                
+        except Exception as e:
+            st.error(f"❌ Fehler beim Laden der aktuellen Woche: {str(e)}")
+        
+        st.markdown("---")
         st.subheader("📋 Alle Strafen")
         
         # Filters
