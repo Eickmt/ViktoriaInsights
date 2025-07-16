@@ -10,10 +10,11 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from auth import require_auth, show_logout, show_user_management
 from database_helper import db
+from timezone_helper import get_german_now, get_german_now_naive
 
 def show():
     st.title("🤡 Esel der Woche")
-    st.subheader("Strafen und der aktuelle Wochenesel")
+    st.subheader("Strafen und der Esel der Woche")
     
     # Show logout button if authenticated
     show_logout()
@@ -42,22 +43,17 @@ def show():
         df_strafen = pd.DataFrame(columns=['Datum', 'Spieler', 'Strafe', 'Betrag', 'Zusatzinfo'])
         df_strafen['Datum'] = pd.to_datetime(df_strafen['Datum'])
     
-    # Calculate current week's donkey
-    heute = datetime.now()
-    woche_start = heute - timedelta(days=7)
-    aktuelle_woche = df_strafen[df_strafen['Datum'] >= woche_start]
-    
-    if len(aktuelle_woche) > 0:
-        esel_stats = aktuelle_woche.groupby('Spieler').agg({
-            'Betrag': ['sum', 'count']
-        }).round(2)
-        esel_stats.columns = ['Gesamt_Betrag', 'Anzahl_Strafen']
-        esel_stats = esel_stats.reset_index().sort_values('Gesamt_Betrag', ascending=False)
+    # Calculate last week's donkey using week_nr from database
+    try:
+        aktueller_esel, esel_betrag, esel_anzahl = db.get_last_week_donkey()
         
-        aktueller_esel = esel_stats.iloc[0]['Spieler']
-        esel_betrag = esel_stats.iloc[0]['Gesamt_Betrag']
-        esel_anzahl = esel_stats.iloc[0]['Anzahl_Strafen']
-    else:
+        if not aktueller_esel:
+            aktueller_esel = "Niemand"
+            esel_betrag = 0
+            esel_anzahl = 0
+            
+    except Exception as e:
+        st.error(f"❌ Fehler beim Laden des Esels der letzten Woche: {str(e)}")
         aktueller_esel = "Niemand"
         esel_betrag = 0
         esel_anzahl = 0
@@ -80,10 +76,10 @@ def show():
         '>
             <h1 style='margin: 0; font-size: 3rem;'>🤡</h1>
             <h2 style='margin: 0.5rem 0; font-size: 2.5rem; font-weight: bold;'>ESEL DER WOCHE</h2>
-            <h1 style='margin: 1rem 0; font-size: 3rem; color: #fff200; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);'>{aktueller_esel}</h1>
+            <h1 style='margin: 1rem 0; font-size: 3rem; color: #fff200; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);'>{aktueller_esel.capitalize()}</h1>
             <div style='font-size: 1.5rem; margin-top: 1rem;'>
                 <p style='margin: 0.5rem 0;'>💰 <strong>€{esel_betrag:.2f}</strong> in Strafen</p>
-                <p style='margin: 0.5rem 0;'>📊 <strong>{int(esel_anzahl)}</strong> Strafen diese Woche</p>
+                <p style='margin: 0.5rem 0;'>📊 <strong>{int(esel_anzahl)}</strong> Strafen letzte Woche</p>
             </div>
             <p style='font-size: 1.2rem; margin-top: 1.5rem; opacity: 0.9;'>
                 👑 Herzlichen Glückwunsch zum Titel! 👑
@@ -91,24 +87,8 @@ def show():
         </div>
         """, unsafe_allow_html=True)
         
-        # Donkey "Hall of Shame" this week
-        if len(esel_stats) > 1:
-            st.subheader("🏆 Top-Esel diese Woche")
-            
-            col1, col2, col3 = st.columns(3)
-            
-            for i, (_, row) in enumerate(esel_stats.head(3).iterrows()):
-                col = [col1, col2, col3][i]
-                emoji = ["🥇", "🥈", "🥉"][i]
-                
-                with col:
-                    st.metric(
-                        label=f"{emoji} {row['Spieler']}",
-                        value=f"€{row['Gesamt_Betrag']:.2f}",
-                        delta=f"{int(row['Anzahl_Strafen'])} Strafen"
-                    )
     else:
-        st.success("🎉 Diese Woche gab es noch keinen Esel!")
+        st.success("🎉 Letzte Woche gab es noch keinen Esel!")
     
     st.markdown("---")
     
@@ -124,7 +104,7 @@ def show():
         st.metric("💰 Strafen-Summe", f"€{gesamt_betrag:.2f}")
     
     with col3:
-        letzte_30_tage = df_strafen[df_strafen['Datum'] >= (datetime.now() - timedelta(days=30))]
+        letzte_30_tage = df_strafen[df_strafen['Datum'] >= (get_german_now_naive() - timedelta(days=30))]
         strafen_30_tage = len(letzte_30_tage)
         st.metric("📅 Letzte 30 Tage", strafen_30_tage)
     
@@ -152,7 +132,16 @@ def show():
         # Filters
         col1, col2, col3 = st.columns(3)
         with col1:
-            spieler_filter = st.selectbox("Spieler", ["Alle"] + list(df_strafen['Spieler'].unique()))
+            # Capitalize player names for display in selectbox
+            unique_players = sorted(df_strafen['Spieler'].unique())
+            unique_players_display = [player.capitalize() for player in unique_players]
+            spieler_filter_display = st.selectbox("Spieler", ["Alle"] + unique_players_display)
+            
+            # Map back to original case for filtering
+            if spieler_filter_display != "Alle":
+                spieler_filter = unique_players[unique_players_display.index(spieler_filter_display)]
+            else:
+                spieler_filter = "Alle"
         with col2:
             zeitraum = st.selectbox("Zeitraum", ["Alle", "Diese Woche", "Dieser Monat", "Letzte 3 Monate"])
         with col3:
@@ -165,17 +154,18 @@ def show():
             filtered_df = filtered_df[filtered_df['Spieler'] == spieler_filter]
         
         if zeitraum == "Diese Woche":
-            filtered_df = filtered_df[filtered_df['Datum'] >= (datetime.now() - timedelta(days=7))]
+            filtered_df = filtered_df[filtered_df['Datum'] >= (get_german_now_naive() - timedelta(days=7))]
         elif zeitraum == "Dieser Monat":
-            filtered_df = filtered_df[filtered_df['Datum'] >= (datetime.now() - timedelta(days=30))]
+            filtered_df = filtered_df[filtered_df['Datum'] >= (get_german_now_naive() - timedelta(days=30))]
         elif zeitraum == "Letzte 3 Monate":
-            filtered_df = filtered_df[filtered_df['Datum'] >= (datetime.now() - timedelta(days=90))]
+            filtered_df = filtered_df[filtered_df['Datum'] >= (get_german_now_naive() - timedelta(days=90))]
         
         if anzahl_anzeigen != "Alle":
             filtered_df = filtered_df.head(anzahl_anzeigen)
         
         # Display table
         display_df = filtered_df.copy()
+        display_df['Spieler'] = display_df['Spieler'].str.capitalize()
         display_df['Datum'] = display_df['Datum'].dt.strftime("%d.%m.%Y")
         display_df['Betrag'] = display_df['Betrag'].apply(lambda x: f"€{x:.2f}")
         
@@ -207,6 +197,8 @@ def show():
             }).round(2)
             spieler_stats.columns = ['Gesamt', 'Anzahl', 'Durchschnitt']
             spieler_stats = spieler_stats.reset_index().sort_values('Gesamt', ascending=True)
+            # Capitalize player names for display
+            spieler_stats['Spieler'] = spieler_stats['Spieler'].str.capitalize()
             
             fig1 = px.bar(spieler_stats, x='Gesamt', y='Spieler', 
                          title='Strafen-Gesamtsumme pro Spieler',
@@ -231,17 +223,23 @@ def show():
         st.subheader("📈 Strafen-Verlauf")
         
         timeline_df = df_strafen.copy()
-        timeline_df['Woche'] = timeline_df['Datum'].dt.to_period('W')
-        weekly_penalties = timeline_df.groupby('Woche')['Betrag'].sum().reset_index()
-        weekly_penalties['Woche'] = weekly_penalties['Woche'].astype(str)
+        # Calculate ISO calendar week (KW)
+        timeline_df['KW'] = timeline_df['Datum'].dt.isocalendar().week
+        timeline_df['Jahr'] = timeline_df['Datum'].dt.year
+        timeline_df['KW_Label'] = 'KW ' + timeline_df['KW'].astype(str) + '/' + timeline_df['Jahr'].astype(str).str[-2:]
         
-        fig3 = px.line(weekly_penalties, x='Woche', y='Betrag',
+        weekly_penalties = timeline_df.groupby(['KW', 'Jahr', 'KW_Label'])['Betrag'].sum().reset_index()
+        weekly_penalties = weekly_penalties.sort_values(['Jahr', 'KW'])
+        
+        fig3 = px.line(weekly_penalties, x='KW_Label', y='Betrag',
                       title='Wöchentliche Strafen-Entwicklung',
                       line_shape='spline')
         fig3.update_traces(line_color='#ff6b6b', line_width=3, mode='lines+markers')
         fig3.update_layout(
             plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)'
+            paper_bgcolor='rgba(0,0,0,0)',
+            xaxis_title='Kalenderwoche',
+            yaxis_title='Strafenbetrag (€)'
         )
         st.plotly_chart(fig3, use_container_width=True)
         
@@ -252,14 +250,14 @@ def show():
         
         for i, (_, row) in enumerate(hall_of_fame.head(5).iterrows()):
             emoji = ["👑", "🥈", "🥉", "4️⃣", "5️⃣"][i]
-            platz = ["Esel-König", "Vize-Esel", "Bronze-Esel", "4. Platz", "5. Platz"][i]
+            platz = ["Champion", "Vize", "Bronze", "4. Platz", "5. Platz"][i]
             
             with st.container():
                 col1, col2, col3, col4 = st.columns([1, 3, 2, 2])
                 with col1:
                     st.markdown(f"### {emoji}")
                 with col2:
-                    st.markdown(f"**{row['Spieler']}**\n{platz}")
+                    st.markdown(f"**{row['Spieler'].capitalize()}**\n{platz}")
                 with col3:
                     st.metric("Gesamt", f"€{row['Gesamt']:.2f}")
                 with col4:
@@ -270,7 +268,7 @@ def show():
         
         # Generate weekly donkey history
         all_weeks = []
-        current_date = datetime.now()
+        current_date = get_german_now_naive()
         
         for i in range(8):  # Last 8 weeks
             week_start = current_date - timedelta(days=7*(i+1))
@@ -292,7 +290,7 @@ def show():
             all_weeks.append({
                 "Woche": f"KW {week_start.isocalendar()[1]}",
                 "Datum": f"{week_start.strftime('%d.%m.')} - {week_end.strftime('%d.%m.%Y')}",
-                "Esel": week_donkey,
+                "Esel": week_donkey.capitalize() if week_donkey != "Niemand" else "Niemand",
                 "Betrag": f"€{donkey_amount:.2f}" if donkey_amount > 0 else "€0.00"
             })
         
@@ -312,6 +310,8 @@ def show():
             häufigkeit_df = pd.DataFrame(list(esel_häufigkeit.items()), 
                                        columns=['Spieler', 'Anzahl_Wochen'])
             häufigkeit_df = häufigkeit_df.sort_values('Anzahl_Wochen', ascending=False)
+            # Capitalize player names for display
+            häufigkeit_df['Spieler'] = häufigkeit_df['Spieler'].str.capitalize()
             
             fig4 = px.bar(häufigkeit_df, x='Spieler', y='Anzahl_Wochen',
                          title='Esel der Woche - Häufigkeit',

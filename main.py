@@ -10,6 +10,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'pages'))
 
 from pages import startseite, teamkalender, trainingsstatistiken, esel_der_woche
 from database_helper import db
+from timezone_helper import get_german_date_now
 
 # Page configuration
 st.set_page_config(
@@ -188,7 +189,7 @@ def show_token_penalty_input():
                              help="Wählen Sie den Spieler aus der Mannschaftsliste")
     
     with col2:
-        datum = st.date_input("📅 Datum", value=datetime.now().date(),
+        datum = st.date_input("📅 Datum", value=get_german_date_now(),
                             help="Datum an dem die Strafe aufgetreten ist")
     
     # Penalty type selection
@@ -288,7 +289,7 @@ def show_token_penalty_input():
     
     with col_select2:
         quick_datum = st.date_input("📅 Datum für Schnell-Strafe", 
-                                  value=datetime.now().date(),
+                                  value=get_german_date_now(),
                                   key="quick_penalty_date",
                                   help="Datum für Schnell-Strafen auswählen")
     

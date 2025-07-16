@@ -11,6 +11,7 @@ Verwendung:
 import sys
 import os
 from datetime import datetime
+from timezone_helper import get_german_now, format_german_datetime, convert_to_german_tz
 
 # Team-Scraper Module importieren
 try:
@@ -22,15 +23,16 @@ except ImportError:
 
 def main():
     """Hauptfunktion für das Team-Daten Update"""
-    print(f"🔄 Team-Daten Update gestartet - {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}")
+    print(f"🔄 Team-Daten Update gestartet - {format_german_datetime(get_german_now())}")
     print("=" * 60)
     
     # Aktuellen Cache-Status prüfen
     cache_info = team_scraper.get_cache_info()
     if cache_info:
         last_update = datetime.fromisoformat(cache_info['last_update'])
-        age_hours = (datetime.now() - last_update).total_seconds() / 3600
-        print(f"📋 Letzte Aktualisierung: {last_update.strftime('%d.%m.%Y %H:%M:%S')}")
+        last_update_german = convert_to_german_tz(last_update)
+        age_hours = (get_german_now() - last_update_german).total_seconds() / 3600
+        print(f"📋 Letzte Aktualisierung: {format_german_datetime(last_update_german)}")
         print(f"⏰ Alter der Daten: {age_hours:.1f} Stunden")
         
         if team_scraper.is_cache_valid():
@@ -88,7 +90,7 @@ def main():
         print("\n⚠️ Update mit Fallback-Daten abgeschlossen")
     
     print("=" * 60)
-    print(f"🏁 Team-Daten Update beendet - {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}")
+    print(f"🏁 Team-Daten Update beendet - {format_german_datetime(get_german_now())}")
 
 def show_cache_info():
     """Zeigt detaillierte Cache-Informationen"""

@@ -5,6 +5,7 @@ import streamlit as st
 from datetime import datetime, timedelta
 import os
 import json
+from timezone_helper import get_german_now, convert_to_german_tz
 
 # Team-ID für TuS Viktoria Buchholz
 TEAM_ID = "011MI9UHGG000000VTVG0001VTR8C1K7"
@@ -58,8 +59,9 @@ def is_cache_valid():
     
     try:
         last_update = datetime.fromisoformat(cache_info['last_update'])
-        now = datetime.now()
-        return (now - last_update).total_seconds() < 86400  # 24 Stunden
+        last_update_german = convert_to_german_tz(last_update)
+        now = get_german_now()
+        return (now - last_update_german).total_seconds() < 86400  # 24 Stunden
     except:
         return False
 
@@ -116,7 +118,7 @@ def scrape_team_data():
                     
                     # Cache-Info speichern
                     cache_data = {
-                        'last_update': datetime.now().isoformat(),
+                        'last_update': get_german_now().isoformat(),
                         'viktoria_info': viktoria_info,
                         'total_teams': len(df_table),
                         'source': 'fussball.de'

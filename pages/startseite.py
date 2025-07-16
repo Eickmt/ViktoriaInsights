@@ -10,6 +10,8 @@ import requests
 # Add the parent directory to the path to import database helper
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from database_helper import db
+from timezone_helper import get_german_now, get_german_now_naive, make_naive_german_datetime, calculate_days_until_birthday
+import team_scraper
 
 @st.cache_data(ttl=600)  # Cache für 10 Minuten
 def get_weather_data(city="Buchholz", api_key=None):
@@ -93,21 +95,30 @@ def show():
                 df_geburtstage = pd.DataFrame(geburtstage)
                 df_geburtstage['Datum'] = pd.to_datetime(df_geburtstage['Datum'])
                 df_geburtstage['Geburtstag_dieses_Jahr'] = df_geburtstage['Datum'].apply(
-                    lambda x: datetime(datetime.now().year, x.month, x.day)
+                    lambda x: make_naive_german_datetime(get_german_now().year, x.month, x.day)
                 )
                 
                 # Calculate days until birthday
-                today = datetime.now()
+                today = get_german_now_naive()
                 df_geburtstage['Tage_bis_Geburtstag'] = df_geburtstage['Geburtstag_dieses_Jahr'].apply(
-                    lambda x: (x - today).days if (x - today).days >= 0 else (x.replace(year=x.year + 1) - today).days
+                    lambda x: calculate_days_until_birthday(x, today)
                 )
                 
                 # Get next birthday
                 df_geburtstage = df_geburtstage.sort_values('Tage_bis_Geburtstag')
                 if len(df_geburtstage) > 0:
-                    next_birthday = df_geburtstage.iloc[0]
-                    next_birthday_name = next_birthday['Name']
-                    next_birthday_days = next_birthday['Tage_bis_Geburtstag']
+                    # Prüfe ob heute jemand Geburtstag hat (0 Tage)
+                    today_birthdays = df_geburtstage[df_geburtstage['Tage_bis_Geburtstag'] == 0]
+                    if len(today_birthdays) > 0:
+                        # Jemand hat heute Geburtstag
+                        today_birthday = today_birthdays.iloc[0]
+                        next_birthday_name = f"{today_birthday['Name'].capitalize()} (HEUTE!)"
+                        next_birthday_days = 0
+                    else:
+                        # Nächster Geburtstag (nicht heute)
+                        next_birthday = df_geburtstage.iloc[0]
+                        next_birthday_name = next_birthday['Name'].capitalize()
+                        next_birthday_days = next_birthday['Tage_bis_Geburtstag']
         
     except Exception as e:
         st.error(f"❌ Fehler beim Laden der Geburtstagsdaten: {str(e)}")
@@ -132,41 +143,16 @@ def show():
     donkey_penalty_count = 0
     
     try:
-        # Load penalty data from database
-        df_penalties = db.get_penalties()
+        # Get donkey of last week from database using week_nr
+        donkey_name, donkey_amount, donkey_count = db.get_last_week_donkey()
         
-        if df_penalties is not None and len(df_penalties) > 0:
-            # Calculate last week's period (Monday to Sunday)
-            today = datetime.now()
-            days_since_monday = today.weekday()  # Monday = 0, Sunday = 6
-            
-            # Last week's Monday
-            last_week_monday = today - timedelta(days=days_since_monday + 7)
-            # Last week's Sunday  
-            last_week_sunday = last_week_monday + timedelta(days=6)
-            
-            # Filter penalties from last week
-            last_week_penalties = df_penalties[
-                (df_penalties['Datum'] >= last_week_monday) & 
-                (df_penalties['Datum'] <= last_week_sunday)
-            ]
-            
-            if len(last_week_penalties) > 0:
-                # Calculate penalty stats per player for last week
-                penalty_stats = last_week_penalties.groupby('Spieler').agg({
-                    'Betrag': ['sum', 'count']
-                }).round(2)
-                penalty_stats.columns = ['Gesamt_Betrag', 'Anzahl_Strafen']
-                penalty_stats = penalty_stats.reset_index().sort_values('Gesamt_Betrag', ascending=False)
-                
-                # Get the player with highest penalty amount
-                if len(penalty_stats) > 0:
-                    current_donkey = penalty_stats.iloc[0]['Spieler']
-                    donkey_penalty_amount = penalty_stats.iloc[0]['Gesamt_Betrag']
-                    donkey_penalty_count = int(penalty_stats.iloc[0]['Anzahl_Strafen'])
+        if donkey_name:
+            current_donkey = donkey_name.capitalize()
+            donkey_penalty_amount = donkey_amount
+            donkey_penalty_count = donkey_count
         
     except Exception as e:
-        # Fallback if penalty data can't be loaded
+        # Fallback if donkey data can't be loaded
         current_donkey = "Keine Daten"
         donkey_penalty_amount = 0
         donkey_penalty_count = 0

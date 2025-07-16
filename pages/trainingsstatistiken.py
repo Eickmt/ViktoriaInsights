@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 import os
 import numpy as np
 from database_helper import db
+from timezone_helper import get_german_now, get_german_date_now, get_german_now_naive
 
 def show():
     st.title("🏆 Trainingsspielsiege")
@@ -142,6 +143,8 @@ def show():
         
         # Get unique player names for UI
         spieler_namen = sorted(df_melted['Spieler'].unique().tolist())
+        # Capitalize names for display but keep original for data processing
+        spieler_namen_display = [name.capitalize() for name in spieler_namen]
         
     except Exception as e:
         st.error(f"❌ Fehler beim Laden der Daten aus der Datenbank: {str(e)}")
@@ -239,7 +242,7 @@ def show():
     )
     
     # Apply date filter
-    heute = datetime.now()
+    heute = get_german_now_naive()
     if filter_option == "Letzte 7 Tage":
         start_datum = heute - timedelta(days=7)
         df_filtered = df_melted[df_melted['Datum'] >= start_datum]
@@ -247,7 +250,6 @@ def show():
     elif filter_option == "Letzte 30 Tage":
         start_datum = heute - timedelta(days=30)
         df_filtered = df_melted[df_melted['Datum'] >= start_datum]
-        filter_text = "den letzten 30 Tagen"
     else:
         df_filtered = df_melted.copy()
         filter_text = "dem Gesamtzeitraum"
@@ -276,7 +278,7 @@ def show():
     sieg_quote = (gesamt_siege / gesamt_teilnahmen * 100) if gesamt_teilnahmen > 0 else 0
     
     # Main metrics
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3 = st.columns(3)
     
     with col1:
         st.metric("🏆 Siege gesamt", gesamt_siege)
@@ -286,9 +288,6 @@ def show():
     
     with col3:
         st.metric("👥 Ø Spieler/Training", f"{durchschnitt_spieler_pro_training:.1f}")
-    
-    with col4:
-        st.metric("📊 Siegquote", f"{sieg_quote:.1f}%")
     
     # Show current filter
     st.info(f"📊 Anzeige für: **{filter_text}** ({filter_option})")
@@ -331,14 +330,14 @@ def show():
         spieler_ranking = pd.DataFrame(alle_spieler_stats).sort_values('Siege', ascending=False)
         
         # Display top performers
-        col1, col2, col3 = st.columns(3)
+        col1, col2 = st.columns(2)
         
         with col1:
             st.markdown("### 🥇 Top Performer")
             if len(spieler_ranking) > 0:
                 top_player = spieler_ranking.iloc[0]
                 st.success(f"""
-                **{top_player['Spieler']}**
+                **{top_player['Spieler'].capitalize()}**
                 
                 🏆 {top_player['Siege']} Siege
                 
@@ -381,7 +380,7 @@ def show():
                     
                     if hottest_streak > 0:
                         st.info(f"""
-                        **{hottest_player}**
+                        **{hottest_player.capitalize()}**
                         
                         🔥 {hottest_streak} Siege in Serie
                         
@@ -394,17 +393,7 @@ def show():
             else:
                 st.info("**Keine Siege**\n\n🔥 Noch keine Siege verzeichnet")
         
-        with col3:
-            st.markdown("### 📊 Durchschnitt")
-            avg_siege = spieler_ranking['Siege'].mean()
-            median_siege = spieler_ranking['Siege'].median()
-            st.warning(f"""
-            **Team-Statistik**
-            
-            📊 Ø {avg_siege:.1f} Siege
-            
-            📍 Median: {median_siege:.1f}
-            """)
+
         
         st.markdown("---")
         
@@ -468,7 +457,7 @@ def show():
                         color: #212529;
                         font-weight: bold;
                         font-size: 1.1rem;
-                    '>#{i+1} {player['Status']} {player['Spieler']}</h4>
+                    '>#{i+1} {player['Status']} {player['Spieler'].capitalize()}</h4>
                     <p style='
                         margin: 0.3rem 0;
                         color: #495057;
@@ -624,7 +613,7 @@ def show():
             with col1:
                 st.markdown("**Top 5 Spieler:**")
                 for i, (spieler, siege) in enumerate(pivot_table['Gesamt'].head(5).items()):
-                    st.write(f"{i+1}. {spieler}: {siege} Siege")
+                    st.write(f"{i+1}. {spieler.capitalize()}: {siege} Siege")
             
             with col2:
                 st.markdown("**Aktivste Trainingstage:**")
@@ -650,7 +639,7 @@ def show():
         # Date selection
         selected_date = st.date_input(
             "📅 Trainingstag auswählen:",
-            value=datetime.now().date(),
+            value=get_german_date_now(),
             help="Wählen Sie das Datum des Trainings aus"
         )
         
@@ -675,7 +664,7 @@ def show():
             
             st.markdown("**🏆 Gewinner:**")
             for spieler in gewinner:
-                st.write(f"✅ {spieler}")
+                st.write(f"✅ {spieler.capitalize()}")
             if not gewinner:
                 st.write("_Keine Gewinner eingetragen_")
             
@@ -712,7 +701,7 @@ def show():
                 current_value = spieler in current_winners
                 
                 is_selected = st.checkbox(
-                    spieler, 
+                    spieler.capitalize(), 
                     value=current_value,
                     key=f"player_{spieler}_{selected_date}"
                 )

@@ -2,6 +2,7 @@ import os
 import pandas as pd
 from datetime import datetime
 import streamlit as st
+from timezone_helper import get_german_now, convert_to_german_tz
 
 # Try to load .env file if available
 try:
@@ -843,6 +844,116 @@ class DatabaseHelper:
             info['env_sources']['SUPABASE_ANON_KEY_nested'] = False
         
         return info
+
+    def get_last_week_donkey(self):
+        """Ermittelt den Esel der letzten Woche basierend auf week_nr aus dim_date"""
+        self._ensure_connected()
+        
+        if not self.connected:
+            # Fallback zur alten Methode wenn keine DB-Verbindung
+            return self._get_last_week_donkey_fallback()
+        
+        try:
+            # Aktuelle Kalenderwoche ermitteln
+            current_week = get_german_now().isocalendar()[1]  # ISO Kalenderwoche
+            current_year = get_german_now().year
+            last_week = current_week - 1
+            
+            # Behandle Jahreswechsel (Woche 1 des neuen Jahres -> letzte Woche des vorherigen Jahres)
+            if last_week <= 0:
+                last_week = 52  # oder 53, abhängig vom Jahr
+                current_year -= 1
+            
+            # Lade alle Strafen und filtere dann nach Woche
+            df_penalties = self.get_penalties()
+            
+            if df_penalties is None or len(df_penalties) == 0:
+                return None, 0, 0
+            
+            # Filtere nach letzter Woche
+            last_week_penalties = []
+            for _, row in df_penalties.iterrows():
+                penalty_date = row['Datum']
+                if hasattr(penalty_date, 'isocalendar'):
+                    penalty_week = penalty_date.isocalendar()[1]
+                    penalty_year = penalty_date.year
+                    
+                    if penalty_week == last_week and penalty_year == current_year:
+                        last_week_penalties.append(row)
+            
+            if not last_week_penalties:
+                return None, 0, 0
+            
+            # Konvertiere zu DataFrame für Aggregation
+            df_last_week = pd.DataFrame(last_week_penalties)
+            
+            # Berechne Spieler-Statistiken
+            player_stats = df_last_week.groupby('Spieler').agg({
+                'Betrag': ['sum', 'count']
+            }).round(2)
+            player_stats.columns = ['total_amount', 'count']
+            player_stats = player_stats.reset_index()
+            
+            if len(player_stats) > 0:
+                # Finde den Spieler mit der höchsten Strafen-Summe
+                top_player = player_stats.loc[player_stats['total_amount'].idxmax()]
+                donkey_name = top_player['Spieler']
+                donkey_amount = top_player['total_amount']
+                donkey_count = int(top_player['count'])
+                
+                return donkey_name, donkey_amount, donkey_count
+                
+        except Exception as e:
+            print(f"Fehler beim Laden des Esels der letzten Woche: {e}")
+            # Fallback zur alten Methode
+            return self._get_last_week_donkey_fallback()
+        
+        return None, 0, 0
+    
+    def _get_last_week_donkey_fallback(self):
+        """Fallback-Methode für Esel der letzten Woche ohne DB-Verbindung"""
+        try:
+            # Lade Strafen aus CSV als Fallback
+            df_penalties = self._fallback_penalties()
+            
+            if df_penalties is None or len(df_penalties) == 0:
+                return None, 0, 0
+            
+            # Berechne letzte Woche mit datetime
+            from datetime import timedelta
+            today = get_german_now_naive()
+            days_since_monday = today.weekday()
+            
+            # Letzte Woche Montag bis Sonntag
+            last_week_monday = today - timedelta(days=days_since_monday + 7)
+            last_week_sunday = last_week_monday + timedelta(days=6)
+            
+            # Filtere Strafen der letzten Woche
+            last_week_penalties = df_penalties[
+                (df_penalties['Datum'] >= last_week_monday) & 
+                (df_penalties['Datum'] <= last_week_sunday)
+            ]
+            
+            if len(last_week_penalties) > 0:
+                # Berechne Spieler-Statistiken
+                penalty_stats = last_week_penalties.groupby('Spieler').agg({
+                    'Betrag': ['sum', 'count']
+                }).round(2)
+                penalty_stats.columns = ['total_amount', 'count']
+                penalty_stats = penalty_stats.reset_index().sort_values('total_amount', ascending=False)
+                
+                if len(penalty_stats) > 0:
+                    top_player = penalty_stats.iloc[0]
+                    donkey_name = top_player['Spieler']
+                    donkey_amount = top_player['total_amount']
+                    donkey_count = int(top_player['count'])
+                    
+                    return donkey_name, donkey_amount, donkey_count
+            
+        except Exception as e:
+            print(f"Fehler beim Fallback für Esel der letzten Woche: {e}")
+        
+        return None, 0, 0
 
 # Globale Instanz
 db = DatabaseHelper() 

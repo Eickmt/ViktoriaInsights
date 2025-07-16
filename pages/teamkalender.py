@@ -8,6 +8,16 @@ import sys
 # Add the parent directory to the path to import database helper
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from database_helper import db
+from timezone_helper import get_german_now, get_german_now_naive, make_naive_german_datetime, calculate_days_until_birthday
+
+def calculate_age(birth_date):
+    """Berechnet das Alter basierend auf dem Geburtsdatum in deutscher Zeit"""
+    today = get_german_now()
+    birth_this_year = make_naive_german_datetime(today.year, birth_date.month, birth_date.day)
+    age = today.year - birth_date.year
+    if get_german_now_naive() < birth_this_year:
+        age -= 1  # Birthday hasn't happened this year yet
+    return age
 
 def show():
     st.title("📅 Teamkalender & Geburtstage")
@@ -150,7 +160,7 @@ def show():
                 try:
                     # Determine position based on age (just for display purposes)
                     birth_year = row['Geburtstag_parsed'].year
-                    current_year = datetime.now().year
+                    current_year = get_german_now().year
                     age = current_year - birth_year
                     
                     if age <= 20:
@@ -192,15 +202,16 @@ def show():
         st.error("❌ Fehler: 'Datum' Spalte nicht gefunden in den Geburtstagsdaten")
         st.write("Verfügbare Spalten:", df_geburtstage.columns.tolist())
         return
+    
     df_geburtstage['Datum'] = pd.to_datetime(df_geburtstage['Datum'])
     df_geburtstage['Geburtstag_dieses_Jahr'] = df_geburtstage['Datum'].apply(
-        lambda x: datetime(datetime.now().year, x.month, x.day)
+        lambda x: make_naive_german_datetime(get_german_now().year, x.month, x.day)
     )
     
     # Calculate days until birthday
-    today = datetime.now()
+    today = get_german_now_naive()
     df_geburtstage['Tage_bis_Geburtstag'] = df_geburtstage['Geburtstag_dieses_Jahr'].apply(
-        lambda x: (x - today).days if (x - today).days >= 0 else (x.replace(year=x.year + 1) - today).days
+        lambda x: calculate_days_until_birthday(x, today)
     )
     
     # Sort by next birthday
@@ -228,9 +239,7 @@ def show():
                 delta_color = "normal"
             
             # Calculate age
-            alter = datetime.now().year - row['Datum'].year
-            if datetime.now() < datetime(datetime.now().year, row['Datum'].month, row['Datum'].day):
-                alter -= 1  # Birthday hasn't happened this year yet
+            alter = calculate_age(row['Datum'])
             
             col1, col2, col3 = st.columns([2, 1, 1])
             with col1:
@@ -248,7 +257,7 @@ def show():
                         <div style='display: flex; align-items: center; gap: 0.5rem;'>
                             <span style='font-size: 1.2rem;'>🎉</span>
                             <div>
-                                <strong style='font-size: 1rem;'>{row['Name']}</strong>
+                                <strong style='font-size: 1rem;'>{row['Name'].capitalize()}</strong>
                                 <div style='font-size: 0.9rem; opacity: 0.9;'>wird heute {alter + 1} Jahre alt!</div>
                             </div>
                         </div>
@@ -256,7 +265,7 @@ def show():
                     """, unsafe_allow_html=True)
                 else:
                     st.metric(
-                        label=f"🎂 {row['Name']}",
+                        label=f"🎂 {row['Name'].capitalize()}",
                         value=f"{alter + 1} Jahre",
                         delta=delta_text
                     )
@@ -273,10 +282,10 @@ def show():
         
         # Format data for display
         display_df = df_geburtstage.copy()
+        display_df['Name'] = display_df['Name'].str.capitalize()
         display_df['Geburtstag'] = display_df['Geburtstag_dieses_Jahr'].dt.strftime("%d.%m.%Y")
         display_df['Alter'] = display_df['Datum'].apply(
-            lambda x: datetime.now().year - x.year if datetime.now() >= datetime(datetime.now().year, x.month, x.day) 
-            else datetime.now().year - x.year - 1
+            lambda x: calculate_age(x)
         )
         display_df['Tage bis Geburtstag'] = display_df['Tage_bis_Geburtstag']
         
@@ -329,8 +338,7 @@ def show():
         with col2:
             # Age distribution
             alter_data = df_geburtstage['Datum'].apply(
-                lambda x: datetime.now().year - x.year if datetime.now() >= datetime(datetime.now().year, x.month, x.day) 
-                else datetime.now().year - x.year - 1
+                lambda x: calculate_age(x)
             )
             
             # Create age groups for better visualization
@@ -360,21 +368,19 @@ def show():
         col1, col2, col3 = st.columns(3)
         with col1:
             ältester = df_geburtstage.loc[df_geburtstage['Datum'].idxmin()]
-            ältester_alter = datetime.now().year - ältester['Datum'].year
-            st.metric("👴 Ältester Spieler", ältester['Name'], 
+            ältester_alter = calculate_age(ältester['Datum'])
+            st.metric("👴 Ältester Spieler", ältester['Name'].capitalize(), 
                      f"{ältester_alter} Jahre")
         
         with col2:
             jüngster = df_geburtstage.loc[df_geburtstage['Datum'].idxmax()]
-            jüngster_alter = datetime.now().year - jüngster['Datum'].year
-            if datetime.now() < datetime(datetime.now().year, jüngster['Datum'].month, jüngster['Datum'].day):
-                jüngster_alter -= 1
-            st.metric("👶 Jüngster Spieler", jüngster['Name'], 
+            jüngster_alter = calculate_age(jüngster['Datum'])
+            st.metric("👶 Jüngster Spieler", jüngster['Name'].capitalize(), 
                      f"{jüngster_alter} Jahre")
         
         with col3:
             nächster = df_geburtstage.iloc[0]
-            st.metric("🎂 Nächster Geburtstag", nächster['Name'], 
+            st.metric("🎂 Nächster Geburtstag", nächster['Name'].capitalize(), 
                      f"in {nächster['Tage_bis_Geburtstag']} Tagen")
         
         # Additional statistics
@@ -392,7 +398,7 @@ def show():
             st.metric("📅 Nächste 30 Tage", f"{geburtstage_nächste_30_tage} Geburtstage")
         
         with col3:
-            geburtstage_diesen_monat = len(df_geburtstage[df_geburtstage['Datum'].dt.month == datetime.now().month])
+            geburtstage_diesen_monat = len(df_geburtstage[df_geburtstage['Datum'].dt.month == get_german_now().month])
             st.metric("🗓️ Diesen Monat", f"{geburtstage_diesen_monat} Geburtstage")
         
         with col4:
