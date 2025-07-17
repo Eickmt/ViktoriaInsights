@@ -324,30 +324,54 @@ def show():
     with tab3:
         st.subheader("🏆 Esel der Woche - Historie")
         
-        # Generate weekly donkey history
+        # Generate weekly donkey history based on actual calendar weeks
         all_weeks = []
         current_date = get_german_now_naive()
+        current_week = current_date.isocalendar()[1]
+        current_year = current_date.year
         
-        for i in range(8):  # Last 8 weeks
-            week_start = current_date - timedelta(days=7*(i+1))
-            week_end = current_date - timedelta(days=7*i)
+        for i in range(8):  # Last 8 completed calendar weeks
+            # Calculate the week number for i weeks ago (starting with last week)
+            target_week = current_week - (i + 1)
+            target_year = current_year
             
+            # Handle year transition
+            if target_week <= 0:
+                target_year -= 1
+                # Get the last week of the previous year (52 or 53)
+                last_week_prev_year = datetime(target_year, 12, 28).isocalendar()[1]
+                target_week = last_week_prev_year + target_week
+            
+            # Filter penalties for this specific calendar week
             week_penalties = df_strafen[
-                (df_strafen['Datum'] >= week_start) & 
-                (df_strafen['Datum'] < week_end)
+                (df_strafen['Datum'].dt.isocalendar().week == target_week) &
+                (df_strafen['Datum'].dt.year == target_year)
             ]
             
             if len(week_penalties) > 0:
                 week_stats = week_penalties.groupby('Spieler')['Betrag'].sum()
                 week_donkey = week_stats.idxmax()
                 donkey_amount = week_stats.max()
+                
+                # Calculate the actual start and end dates of this calendar week
+                # Find first day of this week (Monday)
+                jan4 = datetime(target_year, 1, 4)  # January 4th is always in week 1
+                week1_monday = jan4 - timedelta(days=jan4.weekday())
+                target_monday = week1_monday + timedelta(weeks=target_week - 1)
+                target_sunday = target_monday + timedelta(days=6)
             else:
                 week_donkey = "Niemand"
                 donkey_amount = 0
+                
+                # Calculate week dates even if no penalties
+                jan4 = datetime(target_year, 1, 4)
+                week1_monday = jan4 - timedelta(days=jan4.weekday())
+                target_monday = week1_monday + timedelta(weeks=target_week - 1)
+                target_sunday = target_monday + timedelta(days=6)
             
             all_weeks.append({
-                "Woche": f"KW {week_start.isocalendar()[1]}",
-                "Datum": f"{week_start.strftime('%d.%m.')} - {week_end.strftime('%d.%m.%Y')}",
+                "Woche": f"KW {target_week}/{str(target_year)[-2:]}",
+                "Datum": f"{target_monday.strftime('%d.%m.')} - {target_sunday.strftime('%d.%m.%Y')}",
                 "Esel": week_donkey.capitalize() if week_donkey != "Niemand" else "Niemand",
                 "Betrag": f"€{donkey_amount:.2f}" if donkey_amount > 0 else "€0.00"
             })
