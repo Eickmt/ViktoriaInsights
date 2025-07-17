@@ -684,6 +684,9 @@ def show():
         st.subheader("👥 Spieler auswählen")
         st.write("Wählen Sie alle Spieler aus, die an diesem Tag **Siege** erhalten haben:")
         
+        # Load all available players with role "Spieler"
+        alle_verfuegbare_spieler = db.get_players_by_role("Spieler")
+        
         # Create checkboxes for all players
         col_count = 3
         cols = st.columns(col_count)
@@ -694,7 +697,7 @@ def show():
         if date_exists:
             current_winners = [entry['spielername'] for entry in existing_entries if entry['hat_gewonnen']]
         
-        for i, spieler in enumerate(spieler_namen):
+        for i, spieler in enumerate(alle_verfuegbare_spieler):
             col_idx = i % col_count
             with cols[col_idx]:
                 # Check if player is currently a winner for this date
@@ -715,7 +718,7 @@ def show():
         if st.button("💾 Einträge speichern", type="primary", use_container_width=True):
             if not selected_players:
                 st.warning("⚠️ Bitte wählen Sie mindestens einen Gewinner aus!")
-            elif len(selected_players) == len(spieler_namen):
+            elif len(selected_players) == len(alle_verfuegbare_spieler):
                 st.warning("⚠️ Nicht alle Spieler können gewinnen! Bitte wählen Sie nur die Gewinner aus.")
             else:
                 try:
@@ -723,7 +726,7 @@ def show():
                     success, message = db.add_training_day_entries(
                         datum=date_str,
                         spieler_mit_sieg=selected_players,
-                        alle_spieler=spieler_namen
+                        alle_spieler=alle_verfuegbare_spieler
                     )
                     
                     if success:
@@ -734,8 +737,8 @@ def show():
                         st.info(f"""
                         **Gespeichert für {date_display}:**
                         - 🏆 {len(selected_players)} Gewinner
-                        - 😔 {len(spieler_namen) - len(selected_players)} Verlierer
-                        - 📊 Gesamt: {len(spieler_namen)} Spieler
+                        - 😔 {len(alle_verfuegbare_spieler) - len(selected_players)} Verlierer
+                        - 📊 Gesamt: {len(alle_verfuegbare_spieler)} Spieler
                         """)
                         
                         # Refresh page to show updated data
@@ -755,7 +758,7 @@ def show():
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            st.metric("👥 Verfügbare Spieler", len(spieler_namen))
+            st.metric("👥 Verfügbare Spieler", len(alle_verfuegbare_spieler))
         
         with col2:
             trainings_count = df_filtered['Datum'].nunique() if len(df_filtered) > 0 else 0

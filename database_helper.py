@@ -133,6 +133,31 @@ class DatabaseHelper:
             df = self.get_birthdays()
             return sorted(df['Name'].tolist())
     
+    def get_players_by_role(self, role="Spieler"):
+        """Hole alle Spieler mit einer bestimmten Rolle aus dim_player"""
+        self._ensure_connected()
+        
+        if not self.connected:
+            # Fallback zu bestehender Methode
+            return self.get_player_names()
+        
+        try:
+            # Filtere nach aktiven Spielern mit spezifischer Rolle
+            response = self.supabase.table('dim_player').select('name').eq('active_flag', True).eq('Rolle', role).execute()
+            
+            if response.data:
+                player_names = [row['name'] for row in response.data if row.get('name')]
+                # Sortiere alphabetisch, case-insensitive
+                return sorted(player_names, key=str.lower)
+            else:
+                # Fallback zur bisherigen Methode
+                return self.get_player_names()
+                
+        except Exception as e:
+            print(f"Fehler beim Laden der Spieler nach Rolle '{role}': {e}")
+            # Fallback zur bisherigen Methode
+            return self.get_player_names()
+    
     def get_available_tables(self):
         """Hole verfügbare Tabellen aus Supabase"""
         self._ensure_connected()
