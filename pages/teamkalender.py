@@ -10,6 +10,159 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from database_helper import db
 from timezone_helper import get_german_now, get_german_now_naive, make_naive_german_datetime, calculate_days_until_birthday
 
+def create_streamlit_calendar(df_geburtstage, year, month):
+    """Erstellt einen Kalender mit Streamlit-nativen Komponenten"""
+    
+    # Kalender für den gewählten Monat erstellen
+    cal = calendar.Calendar(firstweekday=0)  # Montag als erster Tag der Woche
+    month_days = cal.monthdayscalendar(year, month)
+    
+    # Deutsche Monatsnamen
+    month_names = {
+        1: 'Januar', 2: 'Februar', 3: 'März', 4: 'April',
+        5: 'Mai', 6: 'Juni', 7: 'Juli', 8: 'August',
+        9: 'September', 10: 'Oktober', 11: 'November', 12: 'Dezember'
+    }
+    
+    # Deutsche Wochentage
+    weekdays = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
+    
+    # Geburtstage für den gewählten Monat filtern
+    birthdays_this_month = df_geburtstage[df_geburtstage['Datum'].dt.month == month]
+    birthday_dict = {}
+    for _, row in birthdays_this_month.iterrows():
+        day = row['Datum'].day
+        if day not in birthday_dict:
+            birthday_dict[day] = []
+        birthday_dict[day].append(row['Name'].capitalize())
+    
+    # Heutiges Datum
+    today = get_german_now_naive()
+    is_current_month = (today.year == year and today.month == month)
+    today_day = today.day if is_current_month else None
+    
+    # Kalender-Header mit dunkelgrünem Hintergrund
+    st.markdown(f"""
+    <div style="
+        background: linear-gradient(135deg, #2d5016 0%, #3e6b1f 100%);
+        padding: 20px;
+        border-radius: 15px;
+        text-align: center;
+        color: white;
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin: 10px 0;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    ">
+        🗓️ {month_names[month]} {year}
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Wochentage-Header mit dunkelgrün
+    header_cols = st.columns(7)
+    for i, weekday in enumerate(weekdays):
+        with header_cols[i]:
+            st.markdown(f"""
+            <div style="
+                background: linear-gradient(135deg, #2d5016 0%, #3e6b1f 100%);
+                color: white;
+                text-align: center;
+                padding: 8px;
+                font-weight: bold;
+                border-radius: 5px;
+                margin: 2px;
+                font-size: 0.9rem;
+            ">{weekday}</div>
+            """, unsafe_allow_html=True)
+    
+    # Kalendertage
+    for week in month_days:
+        week_cols = st.columns(7)
+        for i, day in enumerate(week):
+            with week_cols[i]:
+                if day == 0:
+                    # Leerer Tag
+                    st.markdown('<div style="height: 60px;"></div>', unsafe_allow_html=True)
+                else:
+                    # Bestimme Farben und Status
+                    is_today = (day == today_day)
+                    has_birthday = (day in birthday_dict)
+                    
+                    if is_today and has_birthday:
+                        bg_color = "#ff6b6b"
+                        text_color = "white"
+                        border = "3px solid #ffd700"
+                        emoji = "🎉"
+                    elif is_today:
+                        bg_color = "#ff6b6b"
+                        text_color = "white"
+                        border = "2px solid white"
+                        emoji = "📅"
+                    elif has_birthday:
+                        bg_color = "linear-gradient(135deg, #2d5016 0%, #4a7c23 100%)"
+                        text_color = "white"
+                        border = "2px solid rgba(255,255,255,0.5)"
+                        emoji = "🎂"
+                    else:
+                        bg_color = "rgba(255,255,255,0.9)"
+                        text_color = "#333"
+                        border = "1px solid rgba(0,0,0,0.1)"
+                        emoji = ""
+                    
+                    # Namen für Tooltip (nur für title-Attribut, nicht sichtbar)
+                    tooltip_text = ""
+                    if has_birthday:
+                        names = birthday_dict[day]
+                        tooltip_text = ", ".join(names)
+                    
+                    # Tag-Container (ohne Namen, nur Emoji und Tagesnummer)
+                    day_content = f"<strong>{day}</strong>"
+                    if emoji:
+                        day_content = f"{emoji}<br/><strong>{day}</strong>"
+                    
+                    st.markdown(f"""
+                    <div style="
+                        background: {bg_color};
+                        color: {text_color};
+                        text-align: center;
+                        padding: 8px 4px;
+                        border-radius: 8px;
+                        min-height: 60px;
+                        border: {border};
+                        font-weight: {'bold' if (is_today or has_birthday) else 'normal'};
+                        margin: 2px;
+                        display: flex;
+                        flex-direction: column;
+                        justify-content: center;
+                        align-items: center;
+                        font-size: 0.85rem;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                    " title="{tooltip_text}">
+                        {day_content}
+                    </div>
+                    """, unsafe_allow_html=True)
+    
+    # Legende
+    st.markdown("---")
+    legend_cols = st.columns([1, 3, 1])
+    with legend_cols[1]:
+        st.markdown("""
+        <div style="display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; margin: 10px 0;">
+            <div style="display: flex; align-items: center; gap: 5px;">
+                <div style="width: 20px; height: 20px; background: #ff6b6b; border-radius: 5px; border: 2px solid white;"></div>
+                <span style="font-size: 0.9rem;">Heute</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 5px;">
+                <div style="width: 20px; height: 20px; background: linear-gradient(135deg, #2d5016 0%, #4a7c23 100%); border-radius: 5px;"></div>
+                <span style="font-size: 0.9rem;">Geburtstag</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 5px;">
+                <div style="width: 20px; height: 20px; background: #ff6b6b; border-radius: 5px; border: 2px solid #ffd700;"></div>
+                <span style="font-size: 0.9rem;">Geburtstag heute</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
 def calculate_age(birth_date):
     """Berechnet das Alter basierend auf dem Geburtsdatum in deutscher Zeit"""
     today = get_german_now()
@@ -302,7 +455,111 @@ def show():
         )
     
     with tab2:
-        # Birthday statistics
+        # alender
+        st.subheader("📅 Kalender")
+        
+        # Monatsselektor
+        col1, col2, col3 = st.columns([1, 2, 1])
+        
+        with col1:
+            current_date = get_german_now_naive()
+            selected_year = st.selectbox(
+                "Jahr", 
+                options=list(range(current_date.year - 2, current_date.year + 3)), 
+                index=2,  # Aktuelles Jahr als Standard
+                key="calendar_year"
+            )
+        
+        with col2:
+            month_names = {
+                1: 'Januar', 2: 'Februar', 3: 'März', 4: 'April',
+                5: 'Mai', 6: 'Juni', 7: 'Juli', 8: 'August',
+                9: 'September', 10: 'Oktober', 11: 'November', 12: 'Dezember'
+            }
+            month_options = [(i, month_names[i]) for i in range(1, 13)]
+            selected_month = st.selectbox(
+                "Monat",
+                options=month_options,
+                format_func=lambda x: x[1],
+                index=current_date.month - 1,  # Aktueller Monat als Standard
+                key="calendar_month"
+            )[0]
+        
+        with col3:
+            # Navigation Buttons
+            col_prev, col_next = st.columns(2)
+            with col_prev:
+                if st.button("← Vorheriger", key="prev_month", help="Vorheriger Monat"):
+                    if selected_month == 1:
+                        st.session_state.calendar_month = (12, 'Dezember')
+                        st.session_state.calendar_year = selected_year - 1
+                    else:
+                        st.session_state.calendar_month = (selected_month - 1, month_names[selected_month - 1])
+                    st.rerun()
+            
+            with col_next:
+                if st.button("Nächster →", key="next_month", help="Nächster Monat"):
+                    if selected_month == 12:
+                        st.session_state.calendar_month = (1, 'Januar')
+                        st.session_state.calendar_year = selected_year + 1
+                    else:
+                        st.session_state.calendar_month = (selected_month + 1, month_names[selected_month + 1])
+                    st.rerun()
+        
+        # Kalender anzeigen
+        create_streamlit_calendar(df_geburtstage, selected_year, selected_month)
+        
+        # Geburtstage des gewählten Monats auflisten
+        birthdays_selected_month = df_geburtstage[
+            (df_geburtstage['Datum'].dt.year == selected_year) | 
+            (df_geburtstage['Datum'].dt.month == selected_month)
+        ]
+        birthdays_selected_month = df_geburtstage[df_geburtstage['Datum'].dt.month == selected_month]
+        
+        if len(birthdays_selected_month) > 0:
+            st.markdown("### 🎂 Geburtstage in diesem Monat")
+            for _, row in birthdays_selected_month.sort_values('Datum').iterrows():
+                day = row['Datum'].day
+                age_next = calculate_age(row['Datum']) + 1
+                col_info, col_age = st.columns([3, 1])
+                with col_info:
+                    st.write(f"**{day}.** {row['Name'].capitalize()}")
+                with col_age:
+                    st.write(f"wird {age_next} Jahre")
+        else:
+            st.info("📭 Keine Geburtstage in diesem Monat")
+        
+        st.markdown("---")
+        
+        # Geburtstagsinfos (KPIs)
+        st.subheader("🎯 Geburtstagsinfos")
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            # Filter nur auf Rolle "Spieler" für KPI "Ältester Spieler"
+            spieler_nur = df_geburtstage[df_geburtstage['Rolle'] == 'Spieler']
+            if len(spieler_nur) > 0:
+                ältester = spieler_nur.loc[spieler_nur['Datum'].idxmin()]
+                ältester_alter = calculate_age(ältester['Datum'])
+                st.metric("👴 Ältester Spieler", ältester['Name'].capitalize(), 
+                         f"{ältester_alter} Jahre")
+            else:
+                st.metric("👴 Ältester Spieler", "Keine Daten", "—")
+        
+        with col2:
+            jüngster = df_geburtstage.loc[df_geburtstage['Datum'].idxmax()]
+            jüngster_alter = calculate_age(jüngster['Datum'])
+            st.metric("👶 Jüngster Spieler", jüngster['Name'].capitalize(), 
+                     f"{jüngster_alter} Jahre")
+        
+        with col3:
+            nächster = df_geburtstage.iloc[0]
+            st.metric("🎂 Nächster Geburtstag", nächster['Name'].capitalize(), 
+                     f"in {nächster['Tage_bis_Geburtstag']} Tagen")
+        
+        st.markdown("---")
+        
+        # Geburtstagsstatistiken (Diagramme)
         st.subheader("📊 Geburtstagsstatistiken")
         
         col1, col2 = st.columns(2)
@@ -363,41 +620,22 @@ def show():
             fig2.update_traces(textposition='inside', textinfo='percent+label')
             st.plotly_chart(fig2, use_container_width=True)
         
-        # Fun facts
-        st.subheader("🎯 Geburtstagsinfos")
-        
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            # Filter nur auf Rolle "Spieler" für KPI "Ältester Spieler"
-            spieler_nur = df_geburtstage[df_geburtstage['Rolle'] == 'Spieler']
-            if len(spieler_nur) > 0:
-                ältester = spieler_nur.loc[spieler_nur['Datum'].idxmin()]
-                ältester_alter = calculate_age(ältester['Datum'])
-                st.metric("👴 Ältester Spieler", ältester['Name'].capitalize(), 
-                         f"{ältester_alter} Jahre")
-            else:
-                st.metric("👴 Ältester Spieler", "Keine Daten", "—")
-        
-        with col2:
-            jüngster = df_geburtstage.loc[df_geburtstage['Datum'].idxmax()]
-            jüngster_alter = calculate_age(jüngster['Datum'])
-            st.metric("👶 Jüngster Spieler", jüngster['Name'].capitalize(), 
-                     f"{jüngster_alter} Jahre")
-        
-        with col3:
-            nächster = df_geburtstage.iloc[0]
-            st.metric("🎂 Nächster Geburtstag", nächster['Name'].capitalize(), 
-                     f"in {nächster['Tage_bis_Geburtstag']} Tagen")
-        
-        # Additional statistics
         st.markdown("---")
+        
+        # Weitere Statistiken
         st.subheader("📈 Weitere Statistiken")
         
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2, col3 = st.columns(3)
         
         with col1:
-            durchschnittsalter = alter_data.mean()
-            st.metric("📊 Durchschnittsalter", f"{durchschnittsalter:.1f} Jahre")
+            # Filter nur auf Rolle "Spieler" für Durchschnittsalter
+            spieler_nur = df_geburtstage[df_geburtstage['Rolle'] == 'Spieler']
+            if len(spieler_nur) > 0:
+                spieler_alter_data = spieler_nur['Datum'].apply(lambda x: calculate_age(x))
+                durchschnittsalter = spieler_alter_data.mean()
+                st.metric("📊 Durchschnittsalter", f"{durchschnittsalter:.1f} Jahre")
+            else:
+                st.metric("📊 Durchschnittsalter", "Keine Daten", "—")
         
         with col2:
             geburtstage_nächste_30_tage = len(df_geburtstage[df_geburtstage['Tage_bis_Geburtstag'] <= 30])
@@ -405,7 +643,4 @@ def show():
         
         with col3:
             geburtstage_diesen_monat = len(df_geburtstage[df_geburtstage['Datum'].dt.month == get_german_now().month])
-            st.metric("🗓️ Diesen Monat", f"{geburtstage_diesen_monat} Geburtstage")
-        
-        with col4:
-            st.metric("👥 Spieler gesamt", len(df_geburtstage)) 
+            st.metric("🗓️ Diesen Monat", f"{geburtstage_diesen_monat} Geburtstage") 
