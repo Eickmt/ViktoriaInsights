@@ -248,6 +248,7 @@ class DatabaseHelper:
                         penalty_date = row.get('dim_date', {}).get('full_date', None) if row.get('dim_date') else None
                         
                         processed_data.append({
+                            'penalty_id': row.get('penalty_id'),  # Wichtig für Löschen!
                             'Spieler': player_name,
                             'Strafe': penalty_desc,
                             'Betrag': float(row.get('amount_eur', 0)),
@@ -390,6 +391,55 @@ class DatabaseHelper:
             
         except Exception as e:
             return False
+    
+    def delete_penalty(self, penalty_id):
+        """Lösche eine Strafe anhand der penalty_id"""
+        self._ensure_connected()
+        
+        if not self.connected:
+            return False, "Keine Datenbankverbindung"
+        
+        try:
+            # Lösche Strafe aus fact_penalty Tabelle
+            response = self.supabase.table('fact_penalty').delete().eq('penalty_id', penalty_id).execute()
+            
+            # Bei delete() ist response.data die Anzahl der gelöschten Zeilen oder die gelöschten Daten
+            # Wenn keine Fehler auftreten, war das Löschen erfolgreich
+            return True, f"✅ Strafe mit ID {penalty_id} erfolgreich gelöscht"
+                
+        except Exception as e:
+            return False, f"❌ Fehler beim Löschen der Strafe: {str(e)}"
+    
+    def delete_multiple_penalties(self, penalty_ids):
+        """Lösche mehrere Strafen anhand ihrer penalty_ids"""
+        self._ensure_connected()
+        
+        if not self.connected:
+            return False, "Keine Datenbankverbindung"
+        
+        if not penalty_ids:
+            return False, "Keine Strafen-IDs angegeben"
+        
+        try:
+            deleted_count = 0
+            errors = []
+            
+            for penalty_id in penalty_ids:
+                success, message = self.delete_penalty(penalty_id)
+                if success:
+                    deleted_count += 1
+                else:
+                    errors.append(f"ID {penalty_id}: {message}")
+            
+            if deleted_count == len(penalty_ids):
+                return True, f"✅ Alle {deleted_count} Strafen erfolgreich gelöscht"
+            elif deleted_count > 0:
+                return True, f"⚠️ {deleted_count} von {len(penalty_ids)} Strafen gelöscht. Fehler: {'; '.join(errors)}"
+            else:
+                return False, f"❌ Keine Strafen gelöscht. Fehler: {'; '.join(errors)}"
+                
+        except Exception as e:
+            return False, f"❌ Fehler beim Löschen der Strafen: {str(e)}"
     
     def _fallback_penalties(self):
         """Fallback: Lade Strafen aus CSV"""
