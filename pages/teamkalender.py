@@ -45,11 +45,11 @@ def create_streamlit_calendar(df_geburtstage, year, month):
     st.markdown(f"""
     <div style="
         background: linear-gradient(135deg, #2d5016 0%, #3e6b1f 100%);
-        padding: 20px;
+        padding: 15px;
         border-radius: 15px;
         text-align: center;
         color: white;
-        font-size: 1.5rem;
+        font-size: 1.3rem;
         font-weight: bold;
         margin: 10px 0;
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
@@ -58,89 +58,120 @@ def create_streamlit_calendar(df_geburtstage, year, month):
     </div>
     """, unsafe_allow_html=True)
     
-    # Wochentage-Header mit dunkelgrün
-    header_cols = st.columns(7)
-    for i, weekday in enumerate(weekdays):
-        with header_cols[i]:
-            st.markdown(f"""
-            <div style="
-                background: linear-gradient(135deg, #2d5016 0%, #3e6b1f 100%);
-                color: white;
-                text-align: center;
-                padding: 8px;
-                font-weight: bold;
-                border-radius: 5px;
-                margin: 2px;
-                font-size: 0.9rem;
-            ">{weekday}</div>
-            """, unsafe_allow_html=True)
+    # Wochentage-Header mit dunkelgrün - mobile optimiert
+    st.markdown(f"""
+    <div style="
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 2px;
+        margin: 10px 0;
+    ">
+        {''.join([f'''
+        <div style="
+            background: linear-gradient(135deg, #2d5016 0%, #3e6b1f 100%);
+            color: white;
+            text-align: center;
+            padding: 6px 2px;
+            font-weight: bold;
+            border-radius: 5px;
+            font-size: 0.8rem;
+            min-height: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        ">{weekday}</div>
+        ''' for weekday in weekdays])}
+    </div>
+    """, unsafe_allow_html=True)
     
-    # Kalendertage
+    # Kalendertage - mobile optimiert mit CSS Grid
+    calendar_grid_html = f"""
+    <div style="
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 2px;
+        margin: 5px 0;
+        font-family: Arial, sans-serif;
+    ">
+    """
+    
     for week in month_days:
-        week_cols = st.columns(7)
-        for i, day in enumerate(week):
-            with week_cols[i]:
-                if day == 0:
-                    # Leerer Tag
-                    st.markdown('<div style="height: 60px;"></div>', unsafe_allow_html=True)
+        for day in week:
+            if day == 0:
+                # Leerer Tag
+                calendar_grid_html += '<div style="min-height: 45px;"></div>'
+            else:
+                # Bestimme Farben und Status
+                is_today = (day == today_day)
+                has_birthday = (day in birthday_dict)
+                
+                if is_today and has_birthday:
+                    bg_color = "#ff6b6b"
+                    text_color = "white"
+                    border = "2px solid #ffd700"
+                    emoji = "🎉"
+                elif is_today:
+                    bg_color = "#ff6b6b"
+                    text_color = "white"
+                    border = "2px solid white"
+                    emoji = "📅"
+                elif has_birthday:
+                    bg_color = "linear-gradient(135deg, #2d5016 0%, #4a7c23 100%)"
+                    text_color = "white"
+                    border = "2px solid rgba(255,255,255,0.5)"
+                    emoji = "🎂"
                 else:
-                    # Bestimme Farben und Status
-                    is_today = (day == today_day)
-                    has_birthday = (day in birthday_dict)
-                    
-                    if is_today and has_birthday:
-                        bg_color = "#ff6b6b"
-                        text_color = "white"
-                        border = "3px solid #ffd700"
-                        emoji = "🎉"
-                    elif is_today:
-                        bg_color = "#ff6b6b"
-                        text_color = "white"
-                        border = "2px solid white"
-                        emoji = "📅"
-                    elif has_birthday:
-                        bg_color = "linear-gradient(135deg, #2d5016 0%, #4a7c23 100%)"
-                        text_color = "white"
-                        border = "2px solid rgba(255,255,255,0.5)"
-                        emoji = "🎂"
+                    bg_color = "rgba(255,255,255,0.9)"
+                    text_color = "#333"
+                    border = "1px solid rgba(0,0,0,0.1)"
+                    emoji = ""
+                
+                # Namen für Tooltip und sichtbare Anzeige
+                names_display = ""
+                tooltip_text = ""
+                if has_birthday:
+                    names = birthday_dict[day]
+                    tooltip_text = ", ".join(names)
+                    if len(names) == 1:
+                        # Bei einem Geburtstag: Name anzeigen (gekürzt für mobile)
+                        name = names[0]
+                        if len(name) > 8:
+                            names_display = f'<div style="font-size: 0.6rem; line-height: 1; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{name[:8]}...</div>'
+                        else:
+                            names_display = f'<div style="font-size: 0.6rem; line-height: 1; margin-top: 2px;">{name}</div>'
                     else:
-                        bg_color = "rgba(255,255,255,0.9)"
-                        text_color = "#333"
-                        border = "1px solid rgba(0,0,0,0.1)"
-                        emoji = ""
-                    
-                    # Namen für Tooltip (nur für title-Attribut, nicht sichtbar)
-                    tooltip_text = ""
-                    if has_birthday:
-                        names = birthday_dict[day]
-                        tooltip_text = ", ".join(names)
-                    
-                    # Tag-Container (ohne Namen, nur Emoji und Tagesnummer)
-                    day_content = f"<strong>{day}</strong>"
-                    if emoji:
-                        day_content = f"{emoji}<br/><strong>{day}</strong>"
-                    
-                    st.markdown(f"""
-                    <div style="
-                        background: {bg_color};
-                        color: {text_color};
-                        text-align: center;
-                        padding: 8px 4px;
-                        border-radius: 8px;
-                        min-height: 60px;
-                        border: {border};
-                        font-weight: {'bold' if (is_today or has_birthday) else 'normal'};
-                        margin: 2px;
-                        display: flex;
-                        flex-direction: column;
-                        justify-content: center;
-                        align-items: center;
-                        font-size: 0.85rem;
-                        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                    " title="{tooltip_text}">
-                        {day_content}
-                    </div>
-                    """, unsafe_allow_html=True)
+                        # Bei mehreren Geburtstagen: Anzahl anzeigen
+                        names_display = f'<div style="font-size: 0.6rem; line-height: 1; margin-top: 2px;">{len(names)} 🎂</div>'
+                
+                # Tag-Container mit kompaktem Design für Mobile
+                day_content = f"<div style='font-size: 0.9rem; font-weight: bold;'>{day}</div>"
+                if names_display:
+                    day_content += names_display
+                
+                calendar_grid_html += f"""
+                <div style="
+                    background: {bg_color};
+                    color: {text_color};
+                    text-align: center;
+                    padding: 4px 2px;
+                    border-radius: 6px;
+                    min-height: 45px;
+                    border: {border};
+                    font-weight: {'bold' if (is_today or has_birthday) else 'normal'};
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: center;
+                    align-items: center;
+                    font-size: 0.8rem;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                    position: relative;
+                " title="{tooltip_text}">
+                    {day_content}
+                </div>
+                """
+    
+    calendar_grid_html += "</div>"
+    st.markdown(calendar_grid_html, unsafe_allow_html=True)
     
     # Legende
     st.markdown("---")
