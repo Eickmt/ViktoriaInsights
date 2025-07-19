@@ -433,13 +433,7 @@ def show():
                     if has_birthday:
                         names = birthday_dict[day]
                         if len(names) == 1:
-                            name = names[0]
-                            # Kürzere Namen für mobile Ansicht
-                            if len(name) > 6:
-                                display_name = f"{name[:6]}..."
-                            else:
-                                display_name = name
-                            text = f"<b>{day}</b><br>🎂 {display_name}"
+                            text = f"<b>{day}</b><br>🎂"
                         else:
                             text = f"<b>{day}</b><br>🎂 {len(names)}x"
                         
@@ -500,14 +494,18 @@ def show():
                 'ticktext': weekdays,
                 'side': 'top',
                 'tickfont': {'size': 14, 'color': '#2d5016', 'family': 'Arial'},
-                'showgrid': False
+                'showgrid': True,
+                'gridwidth': 1,
+                'gridcolor': 'black'
             },
             yaxis={
                 'tickmode': 'array',
                 'tickvals': list(range(len(month_days))),
                 'ticktext': calendar_weeks,  # Echte Kalenderwochen verwenden
                 'tickfont': {'size': 12, 'color': '#2d5016'},
-                'showgrid': False,
+                'showgrid': True,
+                'gridwidth': 1,
+                'gridcolor': 'black',
                 'autorange': 'reversed'  # Erste Woche oben
             },
             height=400,
