@@ -450,6 +450,71 @@ class DatabaseHelper:
         except Exception as e:
             return pd.DataFrame(columns=['Datum', 'Spieler', 'Strafe', 'Betrag', 'Zusatzinfo'])
     
+    def get_penalty_types(self):
+        """Lade alle Strafenarten aus der dim_penalty_type Tabelle"""
+        self._ensure_connected()
+        
+        if not self.connected:
+            return self._fallback_penalty_types()
+        
+        try:
+            # Lade alle aktiven Strafenarten aus der Datenbank
+            response = self.supabase.table('dim_penalty_type').select(
+                'penalty_type_key, description, default_amount_eur'
+            ).order('description').execute()
+            
+            if response.data:
+                return response.data
+            else:
+                print("Keine Strafenarten in der Datenbank gefunden, verwende Fallback")
+                return self._fallback_penalty_types()
+                
+        except Exception as e:
+            print(f"Fehler beim Laden der Strafenarten aus der Datenbank: {e}")
+            return self._fallback_penalty_types()
+    
+    def _fallback_penalty_types(self):
+        """Fallback: Hardcodierte Strafenarten wenn Datenbank nicht verfügbar"""
+        # Fallback zu den ursprünglich hardcodierten Werten
+        fallback_penalties = [
+            {"description": "18. oder 19. Kontakt in der Ecke vergeigt", "default_amount_eur": 0.50},
+            {"description": "20 Kontakte in der Ecke", "default_amount_eur": 1.00},
+            {"description": "Abmeldung vom Spiel nicht persönlich bei Trainer", "default_amount_eur": 10.00},
+            {"description": "Abmeldung vom Training nicht persönlich bei Trainer", "default_amount_eur": 5.00},
+            {"description": "Alkohol im Trikot", "default_amount_eur": 25.00},
+            {"description": "Ball über Zaun", "default_amount_eur": 1.00},
+            {"description": "Beini in der Ecke", "default_amount_eur": 1.00},
+            {"description": "Beitrag Mannschaftskasse - pro Monat", "default_amount_eur": 5.00},
+            {"description": "Falscher Einwurf", "default_amount_eur": 0.50},
+            {"description": "Falsches Kleidungsstück beim Präsentationsanzug - pro Stück", "default_amount_eur": 3.00},
+            {"description": "Falsches Outfit beim Training - pro Stück", "default_amount_eur": 1.00},
+            {"description": "Gegentor (Spieler)", "default_amount_eur": 0.50},
+            {"description": "Gelb-Rote Karte (Alles außer Foulspiel)", "default_amount_eur": 30.00},
+            {"description": "Gelbe Karte (Alles außer Foulspiel)", "default_amount_eur": 15.00},
+            {"description": "Gerätedienst nicht richtig erfüllt - pro Person", "default_amount_eur": 1.00},
+            {"description": "Geschossenes Tor (Trainer)", "default_amount_eur": 1.00},
+            {"description": "Handy klingelt während Besprechung", "default_amount_eur": 15.00},
+            {"description": "Handynutzung nach der Besprechung", "default_amount_eur": 5.00},
+            {"description": "Kein Präsentationsanzug beim Spiel", "default_amount_eur": 10.00},
+            {"description": "Kiste Bier vergessen", "default_amount_eur": 15.00},
+            {"description": "Nicht Duschen (ohne triftigen Grund)", "default_amount_eur": 5.00},
+            {"description": "Rauchen im Trikot", "default_amount_eur": 25.00},
+            {"description": "Rauchen in der Kabine", "default_amount_eur": 25.00},
+            {"description": "Rote Karte (Alles außer Foulspiel)", "default_amount_eur": 50.00},
+            {"description": "Shampoo/Badelatschen etc. vergessen - pro Teil", "default_amount_eur": 1.00},
+            {"description": "Stange/Hürde o. anderes Trainingsutensil umwerfen", "default_amount_eur": 1.00},
+            {"description": "Unentschuldigtes Fehlen bei Mannschaftsabend oder Event", "default_amount_eur": 10.00},
+            {"description": "Unentschuldigtes Fehlen beim Spiel", "default_amount_eur": 100.00},
+            {"description": "Unentschuldigtes Fehlen beim Training", "default_amount_eur": 25.00},
+            {"description": "Unentschuldigtes Fehlen nach Heimspiel (ca. 1 Stunde nach Abpfiff)", "default_amount_eur": 5.00},
+            {"description": "Vergessene Gegenstände/Kleidungsstücke - pro Teil", "default_amount_eur": 1.00},
+            {"description": "Verspätung Training/Spiel (auf dem Platz) - ab 30 Min.", "default_amount_eur": 15.00},
+            {"description": "Verspätung Training/Spiel (auf dem Platz) - ab 5 Min.", "default_amount_eur": 5.00},
+            {"description": "Verspätung Training/Spiel (auf dem Platz) - pro Min.", "default_amount_eur": 1.00},
+            {"description": "Sonstige", "default_amount_eur": 10.00}
+        ]
+        return fallback_penalties
+    
     def get_training_victories(self):
         """Lade alle Trainingsspielsiege aus Supabase (neue Tabellenstruktur mit JOINs)"""
         self._ensure_connected()
@@ -1029,6 +1094,8 @@ class DatabaseHelper:
             print(f"Fehler beim Fallback für Esel der letzten Woche: {e}")
         
         return None, 0, 0
+
+
 
 # Globale Instanz
 db = DatabaseHelper() 

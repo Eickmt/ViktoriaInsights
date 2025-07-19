@@ -105,82 +105,16 @@ def show_token_penalty_input():
     tab1, tab2 = st.tabs(["➕ Neue Strafe", "🔧 Strafen verwalten"])
     
     with tab1:
-        # Enhanced penalty types with more options
-        penalty_types = [
-            "18. oder 19. Kontakt in der Ecke vergeigt",
-            "20 Kontakte in der Ecke",
-            "Abmeldung vom Spiel nicht persönlich bei Trainer",
-            "Abmeldung vom Training nicht persönlich bei Trainer",
-            "Alkohol im Trikot",
-            "Ball über Zaun",
-            "Beini in der Ecke",
-            "Beitrag Mannschaftskasse - pro Monat",
-            "Falscher Einwurf",
-            "Falsches Kleidungsstück beim Präsentationsanzug - pro Stück",
-            "Falsches Outfit beim Training - pro Stück",
-            "Gegentor (Spieler)",
-            "Gelb-Rote Karte (Alles außer Foulspiel)",
-            "Gelbe Karte (Alles außer Foulspiel)",
-            "Gerätedienst nicht richtig erfüllt - pro Person",
-            "Geschossenes Tor (Trainer)",
-            "Handy klingelt während Besprechung",
-            "Handynutzung nach der Besprechung",
-            "Kein Präsentationsanzug beim Spiel",
-            "Kiste Bier vergessen",
-            "Nicht Duschen (ohne triftigen Grund)",
-            "Rauchen im Trikot",
-            "Rauchen in der Kabine",
-            "Rote Karte (Alles außer Foulspiel)",
-            "Shampoo/Badelatschen etc. vergessen - pro Teil",
-            "Stange/Hürde o. anderes Trainingsutensil umwerfen",
-            "Unentschuldigtes Fehlen bei Mannschaftsabend oder Event",
-            "Unentschuldigtes Fehlen beim Spiel",
-            "Unentschuldigtes Fehlen beim Training",
-            "Unentschuldigtes Fehlen nach Heimspiel (ca. 1 Stunde nach Abpfiff)",
-            "Vergessene Gegenstände/Kleidungsstücke - pro Teil",
-            "Verspätung Training/Spiel (auf dem Platz) - ab 30 Min.",
-            "Verspätung Training/Spiel (auf dem Platz) - ab 5 Min.",
-            "Verspätung Training/Spiel (auf dem Platz) - pro Min.",
-            "Sonstige"
-        ]
-
-        # Predefined penalty amounts from the catalog
-        strafe_beträge = {
-            "Verspätung Training/Spiel (auf dem Platz) - pro Min.": 1.00,
-            "Verspätung Training/Spiel (auf dem Platz) - ab 5 Min.": 5.00,
-            "Verspätung Training/Spiel (auf dem Platz) - ab 30 Min.": 15.00,
-            "Gelbe Karte (Alles außer Foulspiel)": 15.00,
-            "Gelb-Rote Karte (Alles außer Foulspiel)": 30.00,
-            "Rote Karte (Alles außer Foulspiel)": 50.00,
-            "Unentschuldigtes Fehlen beim Training": 25.00,
-            "Unentschuldigtes Fehlen beim Spiel": 100.00,
-            "Unentschuldigtes Fehlen nach Heimspiel (ca. 1 Stunde nach Abpfiff)": 5.00,
-            "Abmeldung vom Training nicht persönlich bei Trainer": 5.00,
-            "Abmeldung vom Spiel nicht persönlich bei Trainer": 10.00,
-            "Unentschuldigtes Fehlen bei Mannschaftsabend oder Event": 10.00,
-            "Kein Präsentationsanzug beim Spiel": 10.00,
-            "Falsches Kleidungsstück beim Präsentationsanzug - pro Stück": 3.00,
-            "Falsches Outfit beim Training - pro Stück": 1.00,
-            "Rauchen in der Kabine": 25.00,
-            "Rauchen im Trikot": 25.00,
-            "Alkohol im Trikot": 25.00,
-            "Handy klingelt während Besprechung": 15.00,
-            "Handynutzung nach der Besprechung": 5.00,
-            "Shampoo/Badelatschen etc. vergessen - pro Teil": 1.00,
-            "Nicht Duschen (ohne triftigen Grund)": 5.00,
-            "Gerätedienst nicht richtig erfüllt - pro Person": 1.00,
-            "Ball über Zaun": 1.00,
-            "Beini in der Ecke": 1.00,
-            "20 Kontakte in der Ecke": 1.00,
-            "18. oder 19. Kontakt in der Ecke vergeigt": 0.50,
-            "Falscher Einwurf": 0.50,
-            "Stange/Hürde o. anderes Trainingsutensil umwerfen": 1.00,
-            "Vergessene Gegenstände/Kleidungsstücke - pro Teil": 1.00,
-            "Gegentor (Spieler)": 0.50,
-            "Geschossenes Tor (Trainer)": 1.00,
-            "Beitrag Mannschaftskasse - pro Monat": 5.00,
-            "Kiste Bier vergessen": 15.00
-        }
+        # Load penalty types from database instead of hardcoding
+        try:
+            penalty_data = db.get_penalty_types()
+            penalty_types = [p['description'] for p in penalty_data]
+            strafe_beträge = {p['description']: float(p['default_amount_eur']) for p in penalty_data}
+        except Exception as e:
+            st.error(f"❌ Fehler beim Laden der Strafenarten: {str(e)}")
+            # Fallback to basic penalty types if database fails
+            penalty_types = ["Sonstige"]
+            strafe_beträge = {"Sonstige": 10.00}
 
         st.markdown("### 📝 Strafe eingeben")
 

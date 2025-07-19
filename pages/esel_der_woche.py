@@ -528,46 +528,21 @@ def show():
                 st.error(f"❌ Fehler beim Laden der Biersatzung: {str(e)}")
         
         with regelwerk_tab2:
-            # Hardcoded Strafenkatalog data
+            # Load penalty catalog from database instead of hardcoding
             st.markdown("### 🚨 Aktueller Strafenkatalog Saison 2025/26")
             
-            # Define penalty catalog directly in code
-            penalty_catalog = [
-                {"Beschreibung": "Verspätung Training/Spiel (auf dem Platz) - pro Min.", "Betrag": "1,00 €"},
-                {"Beschreibung": "Verspätung Training/Spiel (auf dem Platz) - ab 5 Min.", "Betrag": "5,00 €"},
-                {"Beschreibung": "Verspätung Training/Spiel (auf dem Platz) - ab 30 Min.", "Betrag": "15,00 €"},
-                {"Beschreibung": "Gelbe Karte (Alles außer Foulspiel)", "Betrag": "15,00 €"},
-                {"Beschreibung": "Gelb-Rote Karte (Alles außer Foulspiel)", "Betrag": "30,00 €"},
-                {"Beschreibung": "Rote Karte (Alles außer Foulspiel)", "Betrag": "50,00 €"},
-                {"Beschreibung": "Unentschuldigtes Fehlen beim Training", "Betrag": "25,00 €"},
-                {"Beschreibung": "Unentschuldigtes Fehlen beim Spiel", "Betrag": "100,00 €"},
-                {"Beschreibung": "Unentschuldigtes Fehlen nach Heimspiel (ca. 1 Stunde nach Abpfiff)*", "Betrag": "5,00 €"},
-                {"Beschreibung": "Abmeldung vom Training nicht persönlich bei Trainer", "Betrag": "5,00 €"},
-                {"Beschreibung": "Abmeldung vom Spiel nicht persönlich bei Trainer", "Betrag": "10,00 €"},
-                {"Beschreibung": "Unentschuldigtes Fehlen bei Mannschaftsabend oder Event", "Betrag": "10,00 €"},
-                {"Beschreibung": "Kein Präsentationsanzug beim Spiel", "Betrag": "10,00 €"},
-                {"Beschreibung": "Falsches Kleidungsstück beim Präsentationsanzug - pro Stück", "Betrag": "3,00 €"},
-                {"Beschreibung": "Falsches Outfit beim Training - pro Stück", "Betrag": "1,00 €"},
-                {"Beschreibung": "Rauchen in der Kabine", "Betrag": "25,00 €"},
-                {"Beschreibung": "Rauchen im Trikot", "Betrag": "25,00 €"},
-                {"Beschreibung": "Alkohol im Trikot", "Betrag": "25,00 €"},
-                {"Beschreibung": "Handy klingelt während Besprechung", "Betrag": "15,00 €"},
-                {"Beschreibung": "Handynutzung nach der Besprechung", "Betrag": "5,00 €"},
-                {"Beschreibung": "Shampoo/Badelatschen etc. vergessen - pro Teil", "Betrag": "1,00 €"},
-                {"Beschreibung": "Nicht Duschen (ohne triftigen Grund)", "Betrag": "5,00 €"},
-                {"Beschreibung": "Gerätedienst nicht richtig erfüllt - pro Person", "Betrag": "1,00 €"},
-                {"Beschreibung": "Ball über Zaun", "Betrag": "1,00 €"},
-                {"Beschreibung": "Beini in der Ecke", "Betrag": "1,00 €"},
-                {"Beschreibung": "20 Kontakte in der Ecke", "Betrag": "1,00 €"},
-                {"Beschreibung": "18. oder 19. Kontakt in der Ecke vergeigt", "Betrag": "0,50 €"},
-                {"Beschreibung": "Falscher Einwurf", "Betrag": "0,50 €"},
-                {"Beschreibung": "Stange/Hürde o. anderes Trainingsutensil umwerfen", "Betrag": "1,00 €"},
-                {"Beschreibung": "Vergessene Gegenstände/Kleidungsstücke - pro Teil", "Betrag": "1,00 €"},
-                {"Beschreibung": "Gegentor (Spieler)", "Betrag": "0,50 €"},
-                {"Beschreibung": "Geschossenes Tor (Trainer)", "Betrag": "1,00 €"},
-                {"Beschreibung": "Beitrag Mannschaftskasse - pro Monat", "Betrag": "5,00 €"},
-                {"Beschreibung": "Kiste Bier vergessen", "Betrag": "15,00 €"}
-            ]
+            try:
+                penalty_data = db.get_penalty_types()
+                penalty_catalog = [
+                    {
+                        "Beschreibung": p['description'], 
+                        "Betrag": f"{p['default_amount_eur']:.2f} €".replace('.', ',')
+                    } 
+                    for p in penalty_data
+                ]
+            except Exception as e:
+                st.error(f"❌ Fehler beim Laden des Strafenkatalogs: {str(e)}")
+                penalty_catalog = [{"Beschreibung": "Fehler beim Laden", "Betrag": "0,00 €"}]
             
             # Display formatted penalties
             st.markdown("#### 💰 Strafen im Überblick:")
