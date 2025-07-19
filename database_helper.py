@@ -67,11 +67,11 @@ class DatabaseHelper:
         self._ensure_connected()
         
         if not self.connected:
-            return pd.DataFrame(columns=['Name', 'Geburtstag', 'Geburtstag_parsed'])
+            return pd.DataFrame(columns=['Name', 'Geburtstag', 'Geburtstag_parsed', 'Rolle'])
         
         try:
             # Neue Tabelle: "dim_player" - nur aktive Spieler mit Geburtstag
-            response = self.supabase.table('dim_player').select('name, birthday').eq('active_flag', True).execute()
+            response = self.supabase.table('dim_player').select('name, birthday, "Rolle"').eq('active_flag', True).execute()
             
             if response.data:
                 df = pd.DataFrame(response.data)
@@ -94,15 +94,15 @@ class DatabaseHelper:
                     # Sortieren nach Name
                     df = df.sort_values('Name')
                     
-                    return df[['Name', 'Geburtstag', 'Geburtstag_parsed']]
+                    return df[['Name', 'Geburtstag', 'Geburtstag_parsed', 'Rolle']]
                 
-                return pd.DataFrame(columns=['Name', 'Geburtstag', 'Geburtstag_parsed'])
+                return pd.DataFrame(columns=['Name', 'Geburtstag', 'Geburtstag_parsed', 'Rolle'])
             else:
-                return pd.DataFrame(columns=['Name', 'Geburtstag', 'Geburtstag_parsed'])
+                return pd.DataFrame(columns=['Name', 'Geburtstag', 'Geburtstag_parsed', 'Rolle'])
                 
         except Exception as e:
             print(f"Fehler beim Laden der Geburtstage aus Supabase (dim_player): {e}")
-            return pd.DataFrame(columns=['Name', 'Geburtstag', 'Geburtstag_parsed'])
+            return pd.DataFrame(columns=['Name', 'Geburtstag', 'Geburtstag_parsed', 'Rolle'])
     
 
     

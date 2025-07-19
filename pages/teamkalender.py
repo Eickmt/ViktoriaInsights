@@ -177,7 +177,8 @@ def show():
                     geburtstage.append({
                         "Name": str(row['Name']).strip(),
                         "Datum": row['Geburtstag_parsed'].strftime('%Y-%m-%d'),
-                        "Position": position
+                        "Position": position,
+                        "Rolle": row['Rolle'] if pd.notna(row['Rolle']) else "Unbekannt"
                     })
                 except Exception as e:
                     # Skip entries that can't be parsed, but continue with others
@@ -367,10 +368,15 @@ def show():
         
         col1, col2, col3 = st.columns(3)
         with col1:
-            ältester = df_geburtstage.loc[df_geburtstage['Datum'].idxmin()]
-            ältester_alter = calculate_age(ältester['Datum'])
-            st.metric("👴 Ältester Spieler", ältester['Name'].capitalize(), 
-                     f"{ältester_alter} Jahre")
+            # Filter nur auf Rolle "Spieler" für KPI "Ältester Spieler"
+            spieler_nur = df_geburtstage[df_geburtstage['Rolle'] == 'Spieler']
+            if len(spieler_nur) > 0:
+                ältester = spieler_nur.loc[spieler_nur['Datum'].idxmin()]
+                ältester_alter = calculate_age(ältester['Datum'])
+                st.metric("👴 Ältester Spieler", ältester['Name'].capitalize(), 
+                         f"{ältester_alter} Jahre")
+            else:
+                st.metric("👴 Ältester Spieler", "Keine Daten", "—")
         
         with col2:
             jüngster = df_geburtstage.loc[df_geburtstage['Datum'].idxmax()]
