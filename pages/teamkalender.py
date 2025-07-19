@@ -338,12 +338,12 @@ def show():
             # Info über Navigation
             st.info("💡 Verwenden Sie die Dropdowns oben, um Monat/Jahr zu ändern")
         
-        # Einfacher statischer Kalender ohne externe Komponenten
+        # Plotly-Kalender erstellen (mobile-optimiert)
         st.write("---")
         
-        # Kalender für den gewählten Monat erstellen
-        cal = calendar.Calendar(firstweekday=0)  # Montag als erster Tag der Woche
-        month_days = cal.monthdayscalendar(selected_year, selected_month)
+        import plotly.graph_objects as go
+        import plotly.express as px
+        from datetime import datetime, timedelta
         
         # Deutsche Monatsnamen
         month_names_de = {
@@ -351,6 +351,10 @@ def show():
             5: 'Mai', 6: 'Juni', 7: 'Juli', 8: 'August',
             9: 'September', 10: 'Oktober', 11: 'November', 12: 'Dezember'
         }
+        
+        # Kalender für den gewählten Monat erstellen
+        cal = calendar.Calendar(firstweekday=0)  # Montag als erster Tag
+        month_days = cal.monthdayscalendar(selected_year, selected_month)
         
         # Geburtstage für den gewählten Monat filtern
         birthdays_this_month = df_geburtstage[df_geburtstage['Datum'].dt.month == selected_month]
@@ -366,104 +370,158 @@ def show():
         is_current_month = (today.year == selected_year and today.month == selected_month)
         today_day = today.day if is_current_month else None
         
-        # Kalender-Header
-        st.markdown(f"""
-        <div style="
-            background: linear-gradient(135deg, #2d5016 0%, #3e6b1f 100%);
-            padding: 20px;
-            border-radius: 10px;
-            text-align: center;
-            color: white;
-            font-size: 1.5rem;
-            font-weight: bold;
-            margin: 15px 0;
-        ">
-            📅 {month_names_de[selected_month]} {selected_year}
+        # Kalender-Matrix für Plotly erstellen
+        calendar_data = []
+        calendar_text = []
+        calendar_colors = []
+        day_info = []
+        
+        weekdays = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
+        
+        for week_idx, week in enumerate(month_days):
+            week_data = []
+            week_text = []
+            week_colors = []
+            week_info = []
+            
+            for day_idx, day in enumerate(week):
+                if day == 0:
+                    # Leerer Tag
+                    week_data.append(0)
+                    week_text.append("")
+                    week_colors.append(0)
+                    week_info.append("")
+                else:
+                    has_birthday = day in birthday_dict
+                    is_today = (day == today_day)
+                    
+                    # Wert für Heatmap
+                    if is_today and has_birthday:
+                        value = 3  # Heute + Geburtstag
+                        color_val = 3
+                    elif is_today:
+                        value = 2  # Nur heute
+                        color_val = 2
+                    elif has_birthday:
+                        value = 1  # Nur Geburtstag
+                        color_val = 1
+                    else:
+                        value = 0.1  # Normaler Tag
+                        color_val = 0
+                    
+                    week_data.append(value)
+                    week_colors.append(color_val)
+                    
+                    # Text für Anzeige
+                    if has_birthday:
+                        names = birthday_dict[day]
+                        if len(names) == 1:
+                            name = names[0]
+                            if len(name) > 10:
+                                display_name = f"{name[:10]}..."
+                            else:
+                                display_name = name
+                            text = f"<b>{day}</b><br>🎂 {display_name}"
+                        else:
+                            text = f"<b>{day}</b><br>🎂 {len(names)} Personen"
+                        
+                        # Info für Hover
+                        age_info = []
+                        for name in names:
+                            person_data = df_geburtstage[df_geburtstage['Name'].str.capitalize() == name]
+                            if len(person_data) > 0:
+                                age = selected_year - person_data.iloc[0]['Datum'].year
+                                age_info.append(f"{name} wird {age}")
+                        week_info.append(f"Geburtstag: {', '.join(age_info)}")
+                    else:
+                        text = f"<b>{day}</b>"
+                        week_info.append(f"Tag {day}")
+                    
+                    if is_today:
+                        text = f"📅 {text}"
+                        week_info[-1] = f"HEUTE - {week_info[-1]}"
+                    
+                    week_text.append(text)
+            
+            calendar_data.append(week_data)
+            calendar_text.append(week_text)
+            day_info.append(week_info)
+        
+        # Custom Colorscale (Grün-Theme)
+        colorscale = [
+            [0, '#f8f9fa'],      # Normaler Tag - Hellgrau
+            [0.33, '#2d5016'],   # Geburtstag - Dunkelgrün
+            [0.66, '#ff6b6b'],   # Heute - Rot
+            [1, '#ffd700']       # Heute + Geburtstag - Gold
+        ]
+        
+        # Plotly Heatmap erstellen
+        fig = go.Figure(data=go.Heatmap(
+            z=calendar_data,
+            text=calendar_text,
+            texttemplate="%{text}",
+            textfont={"size": 12, "color": "white"},
+            hovertemplate="<b>%{customdata}</b><extra></extra>",
+            customdata=day_info,
+            colorscale=colorscale,
+            showscale=False,
+            zmin=0,
+            zmax=3
+        ))
+        
+        # Layout anpassen
+        fig.update_layout(
+            title={
+                'text': f"📅 {month_names_de[selected_month]} {selected_year}",
+                'x': 0.5,
+                'font': {'size': 24, 'color': '#2d5016', 'family': 'Arial Black'}
+            },
+            xaxis={
+                'tickmode': 'array',
+                'tickvals': list(range(7)),
+                'ticktext': weekdays,
+                'side': 'top',
+                'tickfont': {'size': 14, 'color': '#2d5016', 'family': 'Arial'},
+                'showgrid': False
+            },
+            yaxis={
+                'tickmode': 'array',
+                'tickvals': list(range(len(month_days))),
+                'ticktext': [f"Woche {i+1}" for i in range(len(month_days))],
+                'tickfont': {'size': 12, 'color': '#2d5016'},
+                'showgrid': False,
+                'autorange': 'reversed'  # Erste Woche oben
+            },
+            height=400,
+            margin=dict(l=80, r=20, t=80, b=20),
+            plot_bgcolor='white',
+            paper_bgcolor='white'
+        )
+        
+        # Kalender anzeigen
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Legende
+        st.markdown("""
+        <div style="display: flex; justify-content: center; gap: 20px; margin: 15px 0; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 5px;">
+                <div style="width: 20px; height: 20px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 3px;"></div>
+                <span>Normaler Tag</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 5px;">
+                <div style="width: 20px; height: 20px; background: #2d5016; border-radius: 3px;"></div>
+                <span>🎂 Geburtstag</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 5px;">
+                <div style="width: 20px; height: 20px; background: #ff6b6b; border-radius: 3px;"></div>
+                <span>📅 Heute</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 5px;">
+                <div style="width: 20px; height: 20px; background: #ffd700; border-radius: 3px;"></div>
+                <span>🎉 Geburtstag heute</span>
+            </div>
         </div>
         """, unsafe_allow_html=True)
-        
-        # Wochentage-Header
-        weekdays = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
-        header_cols = st.columns(7)
-        for i, weekday in enumerate(weekdays):
-            with header_cols[i]:
-                st.markdown(f"""
-                <div style="
-                    background: #2d5016;
-                    color: white;
-                    text-align: center;
-                    padding: 8px;
-                    font-weight: bold;
-                    border-radius: 5px;
-                    margin: 2px;
-                ">{weekday}</div>
-                """, unsafe_allow_html=True)
-        
-        # Kalendertage
-        for week in month_days:
-            week_cols = st.columns(7)
-            for i, day in enumerate(week):
-                with week_cols[i]:
-                    if day == 0:
-                        # Leerer Tag
-                        st.markdown('<div style="height: 60px;"></div>', unsafe_allow_html=True)
-                    else:
-                        # Bestimme Farben und Status
-                        is_today = (day == today_day)
-                        has_birthday = (day in birthday_dict)
-                        
-                        if is_today and has_birthday:
-                            bg_color = "#ff6b6b"
-                            text_color = "white"
-                            border = "3px solid #ffd700"
-                            emoji = "🎉"
-                        elif is_today:
-                            bg_color = "#ff6b6b"
-                            text_color = "white"
-                            border = "2px solid white"
-                            emoji = "📅"
-                        elif has_birthday:
-                            bg_color = "#2d5016"
-                            text_color = "white"
-                            border = "2px solid #4a7c23"
-                            emoji = "🎂"
-                        else:
-                            bg_color = "white"
-                            text_color = "#333"
-                            border = "1px solid #ddd"
-                            emoji = ""
-                        
-                        # Namen für Anzeige
-                        names_display = ""
-                        if has_birthday:
-                            names = birthday_dict[day]
-                            if len(names) == 1:
-                                name = names[0]
-                                if len(name) > 8:
-                                    names_display = f'<div style="font-size: 0.7rem; margin-top: 3px;">{name[:8]}...</div>'
-                                else:
-                                    names_display = f'<div style="font-size: 0.7rem; margin-top: 3px;">{name}</div>'
-                            else:
-                                names_display = f'<div style="font-size: 0.7rem; margin-top: 3px;">{len(names)} 🎂</div>'
-                        
-                        st.markdown(f"""
-                        <div style="
-                            background: {bg_color};
-                            color: {text_color};
-                            text-align: center;
-                            padding: 8px 4px;
-                            border-radius: 8px;
-                            min-height: 60px;
-                            border: {border};
-                            margin: 2px;
-                            display: flex;
-                            flex-direction: column;
-                            justify-content: center;
-                        " title="{', '.join(birthday_dict.get(day, []))}">
-                            <div style="font-size: 1rem; font-weight: bold;">{day}</div>
-                            {names_display}
-                        </div>
-                        """, unsafe_allow_html=True)
         
         st.write("---")
             
