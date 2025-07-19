@@ -356,6 +356,23 @@ def show():
         cal = calendar.Calendar(firstweekday=0)  # Montag als erster Tag
         month_days = cal.monthdayscalendar(selected_year, selected_month)
         
+        # Kalenderwochen berechnen
+        import datetime
+        calendar_weeks = []
+        for week in month_days:
+            # Finde den ersten nicht-leeren Tag in der Woche
+            for day in week:
+                if day != 0:
+                    # Erstelle Datum für diesen Tag
+                    date_obj = datetime.date(selected_year, selected_month, day)
+                    # Berechne Kalenderwoche
+                    week_number = date_obj.isocalendar()[1]
+                    calendar_weeks.append(f"KW {week_number}")
+                    break
+            else:
+                # Falls alle Tage 0 sind (sollte nicht passieren)
+                calendar_weeks.append("")
+        
         # Geburtstage für den gewählten Monat filtern
         birthdays_this_month = df_geburtstage[df_geburtstage['Datum'].dt.month == selected_month]
         birthday_dict = {}
@@ -412,18 +429,19 @@ def show():
                     week_data.append(value)
                     week_colors.append(color_val)
                     
-                    # Text für Anzeige
+                    # Text für Anzeige - Mobile-optimiert
                     if has_birthday:
                         names = birthday_dict[day]
                         if len(names) == 1:
                             name = names[0]
-                            if len(name) > 10:
-                                display_name = f"{name[:10]}..."
+                            # Kürzere Namen für mobile Ansicht
+                            if len(name) > 6:
+                                display_name = f"{name[:6]}..."
                             else:
                                 display_name = name
                             text = f"<b>{day}</b><br>🎂 {display_name}"
                         else:
-                            text = f"<b>{day}</b><br>🎂 {len(names)} Personen"
+                            text = f"<b>{day}</b><br>🎂 {len(names)}x"
                         
                         # Info für Hover
                         age_info = []
@@ -447,9 +465,9 @@ def show():
             calendar_text.append(week_text)
             day_info.append(week_info)
         
-        # Custom Colorscale (Grün-Theme)
+        # Custom Colorscale (Grün-Theme) - Verbesserter Kontrast
         colorscale = [
-            [0, '#f8f9fa'],      # Normaler Tag - Hellgrau
+            [0, '#e9ecef'],      # Normaler Tag - Dunkleres Grau für besseren Kontrast
             [0.33, '#2d5016'],   # Geburtstag - Dunkelgrün
             [0.66, '#ff6b6b'],   # Heute - Rot
             [1, '#ffd700']       # Heute + Geburtstag - Gold
@@ -460,7 +478,7 @@ def show():
             z=calendar_data,
             text=calendar_text,
             texttemplate="%{text}",
-            textfont={"size": 12, "color": "white"},
+            textfont={"size": 11, "color": "black"},  # Schwarze Schrift für besseren Kontrast
             hovertemplate="<b>%{customdata}</b><extra></extra>",
             customdata=day_info,
             colorscale=colorscale,
@@ -487,7 +505,7 @@ def show():
             yaxis={
                 'tickmode': 'array',
                 'tickvals': list(range(len(month_days))),
-                'ticktext': [f"Woche {i+1}" for i in range(len(month_days))],
+                'ticktext': calendar_weeks,  # Echte Kalenderwochen verwenden
                 'tickfont': {'size': 12, 'color': '#2d5016'},
                 'showgrid': False,
                 'autorange': 'reversed'  # Erste Woche oben
@@ -505,26 +523,22 @@ def show():
         st.markdown("""
         <div style="display: flex; justify-content: center; gap: 20px; margin: 15px 0; flex-wrap: wrap;">
             <div style="display: flex; align-items: center; gap: 5px;">
-                <div style="width: 20px; height: 20px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 3px;"></div>
-                <span>Normaler Tag</span>
-            </div>
-            <div style="display: flex; align-items: center; gap: 5px;">
                 <div style="width: 20px; height: 20px; background: #2d5016; border-radius: 3px;"></div>
-                <span>🎂 Geburtstag</span>
+                <span>Geburtstag</span>
             </div>
             <div style="display: flex; align-items: center; gap: 5px;">
                 <div style="width: 20px; height: 20px; background: #ff6b6b; border-radius: 3px;"></div>
-                <span>📅 Heute</span>
+                <span>Heute</span>
             </div>
             <div style="display: flex; align-items: center; gap: 5px;">
                 <div style="width: 20px; height: 20px; background: #ffd700; border-radius: 3px;"></div>
-                <span>🎉 Geburtstag heute</span>
+                <span>Geburtstag heute</span>
             </div>
         </div>
         """, unsafe_allow_html=True)
         
         st.write("---")
-            
+        
         # Einfache Geburtstagsliste für den gewählten Monat
         birthdays_selected_month = df_geburtstage[df_geburtstage['Datum'].dt.month == selected_month]
         if len(birthdays_selected_month) > 0:
