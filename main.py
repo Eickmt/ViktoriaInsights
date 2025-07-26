@@ -81,6 +81,253 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+def show_token_training_wins_input():
+    """Special page for token-based training wins input without authentication"""
+    
+    # Header for token input mode
+    st.markdown("""
+    <div style='
+        background: linear-gradient(135deg, #1e3c72, #2a5298);
+        padding: 1.5rem;
+        border-radius: 10px;
+        color: white;
+        text-align: center;
+        margin-bottom: 2rem;
+        border: 2px solid #1e3c72;
+    '>
+        <h1>⚡ Schnelle Trainingssiege-Eingabe</h1>
+        <p>Direkte Eingabe ohne Anmeldung</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Load real player names from database
+    try:
+        alle_verfuegbare_spieler = db.get_players_by_role("Spieler")
+    except Exception as e:
+        st.error(f"❌ Fehler beim Laden der Spielernamen: {str(e)}")
+        # Fallback to default players if database can't be loaded
+        alle_verfuegbare_spieler = ["Thomas Schmidt", "Max Mustermann", "Michael Weber", 
+                                   "Stefan König", "Andreas Müller", "Christian Bauer"]
+    
+    # Create tabs for different functions
+    tab1, tab2 = st.tabs(["🏆 Neuer Trainingstag", "🔧 Trainingstage verwalten"])
+    
+    with tab1:
+        st.markdown("### 🏆 Trainingssiege eingeben")
+        
+        # Date selection
+        selected_date = st.date_input(
+            "📅 Trainingstag auswählen:",
+            value=get_german_date_now(),
+            help="Wählen Sie das Datum des Trainings aus"
+        )
+        
+        # Convert date to database format (YYYY-MM-DD)
+        date_str = selected_date.strftime("%Y-%m-%d")
+        date_display = selected_date.strftime("%d.%m.%Y")
+        
+        st.write(f"**Gewähltes Datum:** {date_display}")
+        
+        # Check if entries already exist for this date
+        try:
+            existing_entries = db.get_training_day_entries(date_str)
+            date_exists = len(existing_entries) > 0
+            
+            if date_exists:
+                st.warning(f"⚠️ Für den {date_display} existieren bereits Einträge!")
+                
+                # Show current entries for this date - only winners
+                st.markdown("**Aktuelle Einträge für diesen Tag:**")
+                
+                # Group entries by victory status - only show winners
+                gewinner = [entry['spielername'] for entry in existing_entries if entry['hat_gewonnen']]
+                
+                st.markdown("**🏆 Gewinner:**")
+                for spieler in gewinner:
+                    st.write(f"✅ {spieler.capitalize()}")
+                if not gewinner:
+                    st.write("_Keine Gewinner eingetragen_")
+                
+                # Option to delete existing entries
+                st.markdown("---")
+                if st.button("🗑️ Bestehende Einträge löschen", type="secondary", key="delete_existing_training"):
+                    success, message = db.delete_training_day(date_str)
+                    if success:
+                        st.success(message)
+                        st.rerun()
+                    else:
+                        st.error(message)
+        except Exception as e:
+            st.error(f"❌ Fehler beim Laden bestehender Einträge: {str(e)}")
+            date_exists = False
+            existing_entries = []
+        
+        st.markdown("---")
+        
+        # Player selection
+        st.subheader("👥 Spieler auswählen")
+        st.write("Wählen Sie alle Spieler aus, die an diesem Tag **Siege** erhalten haben:")
+        
+        # Create checkboxes for all players
+        col_count = 3
+        cols = st.columns(col_count)
+        selected_players = []
+        
+        # Get current winners if date exists
+        current_winners = []
+        if date_exists:
+            current_winners = [entry['spielername'] for entry in existing_entries if entry['hat_gewonnen']]
+        
+        for i, spieler in enumerate(alle_verfuegbare_spieler):
+            col_idx = i % col_count
+            with cols[col_idx]:
+                # Check if player is currently a winner for this date
+                current_value = spieler in current_winners
+                
+                is_selected = st.checkbox(
+                    spieler.capitalize(), 
+                    value=current_value,
+                    key=f"token_player_{spieler}_{selected_date}"
+                )
+                
+                if is_selected:
+                    selected_players.append(spieler)
+        
+        st.markdown("---")
+        
+        # Show selection summary
+        if selected_players:
+            col1, col2 = st.columns(2)
+            with col1:
+                st.success(f"🏆 **{len(selected_players)} Gewinner** ausgewählt")
+                for player in selected_players:
+                    st.write(f"✅ {player.capitalize()}")
+            
+            with col2:
+                verlieren_count = len(alle_verfuegbare_spieler) - len(selected_players)
+                if verlieren_count > 0:
+                    st.info(f"😔 **{verlieren_count} Verlierer**")
+                    verlierer = [p for p in alle_verfuegbare_spieler if p not in selected_players]
+                    for player in verlierer[:5]:  # Show max 5 to save space
+                        st.write(f"❌ {player.capitalize()}")
+                    if len(verlierer) > 5:
+                        st.write(f"... und {len(verlierer) - 5} weitere")
+        
+        # Save button
+        if st.button("💾 Trainingstag speichern", type="primary", use_container_width=True, key="save_training_day"):
+            if not selected_players:
+                st.warning("⚠️ Bitte wählen Sie mindestens einen Gewinner aus!")
+            elif len(selected_players) == len(alle_verfuegbare_spieler):
+                st.warning("⚠️ Nicht alle Spieler können gewinnen! Bitte wählen Sie nur die Gewinner aus.")
+            else:
+                try:
+                    # Save to database
+                    success, message = db.add_training_day_entries(
+                        datum=date_str,
+                        spieler_mit_sieg=selected_players,
+                        alle_spieler=alle_verfuegbare_spieler
+                    )
+                    
+                    if success:
+                        st.success(message)
+                        st.balloons()
+                        
+                        # Show what was saved
+                        info_card = f"""
+                        <div style='
+                            background: linear-gradient(135deg, #28a745, #20c997);
+                            padding: 1rem;
+                            border-radius: 8px;
+                            color: white;
+                            margin: 1rem 0;
+                            border-left: 4px solid #ffffff;
+                        '>
+                            <div style='display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;'>
+                                <span style='font-size: 1.2rem;'>🏆</span>
+                                <strong>Trainingstag Details</strong>
+                            </div>
+                            <p style='margin: 0.2rem 0;'><strong>Datum:</strong> {date_display}</p>
+                            <p style='margin: 0.2rem 0;'><strong>Gewinner:</strong> {len(selected_players)} Spieler</p>
+                            <p style='margin: 0.2rem 0;'><strong>Verlierer:</strong> {len(alle_verfuegbare_spieler) - len(selected_players)} Spieler</p>
+                            <p style='margin: 0.2rem 0;'><strong>Gesamt:</strong> {len(alle_verfuegbare_spieler)} Spieler</p>
+                        </div>
+                        """
+                        st.markdown(info_card, unsafe_allow_html=True)
+                        
+                        # Refresh page to show updated data
+                        st.info("🔄 Seite wird automatisch aktualisiert...")
+                        st.rerun()
+                        
+                    else:
+                        st.error(message)
+                        
+                except Exception as e:
+                    st.error(f"❌ Fehler beim Speichern: {str(e)}")
+    
+    with tab2:
+        st.markdown("### 🔧 Trainingstage verwalten")
+        st.warning("⚠️ **Vorsicht:** Hier können Sie Trainingstage dauerhaft löschen!")
+        
+        # Load recent training days from database
+        try:
+            df_victories = db.get_training_victories()
+            
+            if df_victories is None or len(df_victories) == 0:
+                st.info("📋 Keine Trainingstage in der Datenbank gefunden.")
+            else:
+                # Get unique training dates
+                unique_dates = sorted(df_victories['Datum'].dt.date.unique(), reverse=True)
+                
+                st.metric("📊 Trainingstage in der Datenbank", len(unique_dates))
+                
+                # Show last 20 training days for management
+                st.markdown("#### 🗓️ Letzte Trainingstage")
+                
+                for i, training_date in enumerate(unique_dates[:20]):
+                    date_str = training_date.strftime("%Y-%m-%d")
+                    date_display = training_date.strftime("%d.%m.%Y")
+                    
+                    # Get entries for this date
+                    try:
+                        entries = db.get_training_day_entries(date_str)
+                        gewinner = [entry['spielername'] for entry in entries if entry['hat_gewonnen']]
+                        verlierer_count = len(entries) - len(gewinner)
+                        
+                        col1, col2, col3 = st.columns([2, 2, 1])
+                        
+                        with col1:
+                            st.write(f"**📅 {date_display}**")
+                        
+                        with col2:
+                            st.write(f"🏆 {len(gewinner)} Gewinner, 😔 {verlierer_count} Verlierer")
+                        
+                        with col3:
+                            if st.button("🗑️ Löschen", key=f"delete_training_{i}", type="secondary"):
+                                success, message = db.delete_training_day(date_str)
+                                if success:
+                                    st.success(f"✅ Trainingstag {date_display} gelöscht!")
+                                    st.rerun()
+                                else:
+                                    st.error(f"❌ Fehler: {message}")
+                        
+                        # Show winner details (collapsed by default)
+                        with st.expander(f"Details zu {date_display}"):
+                            st.write("**🏆 Gewinner:**")
+                            for winner in gewinner:
+                                st.write(f"✅ {winner.capitalize()}")
+                        
+                        st.markdown("---")
+                    
+                    except Exception as e:
+                        st.error(f"❌ Fehler beim Laden der Details für {date_display}: {str(e)}")
+        
+        except Exception as e:
+            st.error(f"❌ Fehler beim Laden der Trainingstage: {str(e)}")
+    
+    # Link back to main app
+    st.markdown("---")
+    st.info("🔗 **Zur Hauptanwendung:** Entfernen Sie die URL-Parameter um zur normalen Ansicht zu gelangen.")
+
 def show_token_penalty_input():
     """Special page for token-based penalty input without authentication"""
     
@@ -523,6 +770,21 @@ def main():
         
         # Show the token-based penalty input
         show_token_penalty_input()
+        return
+    
+    # Check for training wins token-based access
+    if mode == "training_wins":
+        # Define your secret token here
+        SECRET_TOKEN = "Trainer"
+        
+        if token != SECRET_TOKEN:
+            st.error("❌ Zugriff verweigert")
+            st.warning("🔒 Ungültiger Token für die Trainingssiege-Eingabe")
+            st.info("💡 Bitte verwenden Sie den korrekten Link oder gehen Sie zur Hauptanwendung.")
+            st.stop()
+        
+        # Show the token-based training wins input
+        show_token_training_wins_input()
         return
     
     # Normal application flow
