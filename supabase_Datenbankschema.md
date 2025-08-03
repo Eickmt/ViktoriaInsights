@@ -60,3 +60,21 @@ create table public.fact_training_win (
   constraint fact_training_win_date_key_fkey foreign KEY (date_key) references dim_date (date_key),
   constraint fact_training_win_player_key_fkey foreign KEY (player_key) references dim_player (player_key)
 ) TABLESPACE pg_default;
+
+create table public.team_standings (
+  standing_id serial not null,
+  team_name varchar(100) not null,
+  season varchar(10) not null, -- z.B. "2425"
+  match_day integer null,
+  position integer not null,
+  games_played integer not null,
+  wins integer not null,
+  draws integer not null,
+  losses integer not null,
+  goals_for integer not null,
+  goals_against integer not null,
+  goal_difference integer not null,
+  points integer not null,
+  scraped_at timestamp with time zone not null default now(),
+  constraint team_standings_pkey primary key (standing_id)
+) TABLESPACE pg_default;

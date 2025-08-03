@@ -217,7 +217,7 @@ def show():
             
             # Create Fieberkurve chart
             fig = px.line(df_fieberkurve, x='Spieltag', y='Platzierung', 
-                         title='Fieberkurve - Tabellenplatzierung Saison 2024/25',
+                         title='Fieberkurve - Tabellenplatzierung Saison 2025/26',
                          line_shape='spline')
             fig.update_traces(line_color='#1e3c72', line_width=3, mode='lines+markers')
             

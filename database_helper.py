@@ -1,8 +1,23 @@
 import os
 import pandas as pd
 from datetime import datetime
-import streamlit as st
 from timezone_helper import get_german_now, convert_to_german_tz
+
+# Try to import streamlit (optional)
+try:
+    import streamlit as st
+    STREAMLIT_AVAILABLE = True
+except ImportError:
+    STREAMLIT_AVAILABLE = False
+    # Mock streamlit.secrets für Nicht-Streamlit-Umgebungen
+    class MockSecrets:
+        def get(self, key, default=None):
+            return default
+    
+    class MockStreamlit:
+        secrets = MockSecrets()
+    
+    st = MockStreamlit()
 
 # Try to load .env file if available
 try:
@@ -1094,6 +1109,175 @@ class DatabaseHelper:
             print(f"Fehler beim Fallback für Esel der letzten Woche: {e}")
         
         return None, 0, 0
+
+    def save_team_standings(self, standings_data, season="2526"):
+        """
+        Speichert die komplette Tabellensituation in Supabase
+        
+        Args:
+            standings_data: List von Dictionaries mit Teamdaten
+            season: Saison-String (z.B. "2425")
+        """
+        self._ensure_connected()
+        
+        if not self.connected:
+            return False, "Keine Datenbankverbindung"
+        
+        try:
+            current_time = get_german_now()
+            
+            # Bereite Daten für Einfügung vor
+            insert_data = []
+            for team_data in standings_data:
+                insert_data.append({
+                    'team_name': team_data.get('team_name', ''),
+                    'season': season,
+                    'match_day': team_data.get('match_day'),
+                    'position': int(team_data.get('position', 0)),
+                    'games_played': int(team_data.get('games_played', 0)),
+                    'wins': int(team_data.get('wins', 0)),
+                    'draws': int(team_data.get('draws', 0)),
+                    'losses': int(team_data.get('losses', 0)),
+                    'goals_for': int(team_data.get('goals_for', 0)),
+                    'goals_against': int(team_data.get('goals_against', 0)),
+                    'goal_difference': int(team_data.get('goal_difference', 0)),
+                    'points': int(team_data.get('points', 0)),
+                    'scraped_at': current_time.isoformat()
+                })
+            
+            # Daten in Supabase einfügen
+            response = self.supabase.table('team_standings').insert(insert_data).execute()
+            
+            if response.data:
+                return True, f"✅ {len(insert_data)} Teams erfolgreich gespeichert"
+            else:
+                return False, "❌ Fehler beim Speichern in Supabase"
+                
+        except Exception as e:
+            return False, f"❌ Fehler beim Speichern: {str(e)}"
+
+    def get_latest_viktoria_data(self, season="2526"):
+        """
+        Lädt die neuesten Daten von TuS Viktoria Buchholz aus der Datenbank
+        
+        Args:
+            season: Saison-String (z.B. "2425")
+            
+        Returns:
+            dict: Viktoria-Daten oder None bei Fehler
+        """
+        self._ensure_connected()
+        
+        if not self.connected:
+            return None
+        
+        try:
+            # Neueste Daten für Viktoria Buchholz laden
+            response = (self.supabase.table('team_standings')
+                       .select('*')
+                       .eq('season', season)
+                       .ilike('team_name', '%viktoria buchholz%')
+                       .order('scraped_at', desc=True)
+                       .limit(1)
+                       .execute())
+            
+            if response.data and len(response.data) > 0:
+                data = response.data[0]
+                
+                # Konvertiere zu dem Format, das das Frontend erwartet
+                viktoria_info = {
+                    'platz': f"{data['position']}.",
+                    'punkte': str(data['points']),
+                    'spiele': str(data['games_played']),
+                    'siege': str(data['wins']),
+                    'unentschieden': str(data['draws']),
+                    'niederlagen': str(data['losses']),
+                    'tore_geschossen': str(data['goals_for']),
+                    'tore_erhalten': str(data['goals_against']),
+                    'tordifferenz': str(data['goal_difference'])
+                }
+                
+                return viktoria_info
+                
+            return None
+            
+        except Exception as e:
+            print(f"Fehler beim Laden der Viktoria-Daten: {e}")
+            return None
+
+    def is_standings_data_current(self, season="2526", max_age_hours=24):
+        """
+        Prüft ob die Tabellendaten aktuell sind (weniger als max_age_hours alt)
+        
+        Args:
+            season: Saison-String (z.B. "2425")
+            max_age_hours: Maximales Alter in Stunden (default: 24)
+            
+        Returns:
+            bool: True wenn Daten aktuell sind
+        """
+        self._ensure_connected()
+        
+        if not self.connected:
+            return False
+        
+        try:
+            # Neueste Daten laden
+            response = (self.supabase.table('team_standings')
+                       .select('scraped_at')
+                       .eq('season', season)
+                       .order('scraped_at', desc=True)
+                       .limit(1)
+                       .execute())
+            
+            if response.data and len(response.data) > 0:
+                last_update_str = response.data[0]['scraped_at']
+                last_update = datetime.fromisoformat(last_update_str.replace('Z', '+00:00'))
+                last_update_german = convert_to_german_tz(last_update)
+                now = get_german_now()
+                
+                age_hours = (now - last_update_german).total_seconds() / 3600
+                return age_hours < max_age_hours
+                
+            return False
+            
+        except Exception as e:
+            print(f"Fehler beim Prüfen der Datenaktualität: {e}")
+            return False
+
+    def get_standings_last_update(self, season="2526"):
+        """
+        Gibt den Zeitpunkt der letzten Aktualisierung der Tabellendaten zurück
+        
+        Args:
+            season: Saison-String (z.B. "2425")
+            
+        Returns:
+            datetime oder None: Zeitpunkt der letzten Aktualisierung
+        """
+        self._ensure_connected()
+        
+        if not self.connected:
+            return None
+        
+        try:
+            response = (self.supabase.table('team_standings')
+                       .select('scraped_at')
+                       .eq('season', season)
+                       .order('scraped_at', desc=True)
+                       .limit(1)
+                       .execute())
+            
+            if response.data and len(response.data) > 0:
+                last_update_str = response.data[0]['scraped_at']
+                last_update = datetime.fromisoformat(last_update_str.replace('Z', '+00:00'))
+                return convert_to_german_tz(last_update)
+                
+            return None
+            
+        except Exception as e:
+            print(f"Fehler beim Laden des letzten Updates: {e}")
+            return None
 
 
 
