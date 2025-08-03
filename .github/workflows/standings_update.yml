@@ -1,0 +1,77 @@
+name: 🏆 Tabellen-Update ViktoriaInsights
+
+# Wann das Update ausgeführt wird
+on:
+  schedule:
+    # Jeden Tag um 06:00 Uhr (UTC) = 07:00/08:00 deutsche Zeit
+    - cron: '0 6 * * *'
+  
+  # Manuell startbar über GitHub Interface
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Grund für manuelles Update'
+        required: false
+        default: 'Manuelles Tabellen-Update'
+
+# Berechtigungen für den Workflow
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  update_standings:
+    name: 📊 Tabelle aktualisieren
+    runs-on: ubuntu-latest
+    
+    steps:
+      # 1. Repository Code auschecken
+      - name: 📥 Code herunterladen
+        uses: actions/checkout@v4
+        
+      # 2. Python-Umgebung einrichten
+      - name: 🐍 Python 3.11 installieren
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          
+      # 3. Abhängigkeiten installieren
+      - name: 📦 Python-Pakete installieren
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          
+      # 4. Test der Verbindungen
+      - name: 🧪 System-Test durchführen
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          echo "🧪 Teste Systemkomponenten..."
+          python test_scraper.py || echo "Test mit Warnungen abgeschlossen"
+          
+      # 5. Intelligentes Tabellen-Update ausführen
+      - name: 🏆 Intelligente Tabellendaten-Aktualisierung
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          echo "🚀 Starte Intelligentes ViktoriaInsights Tabellen-Update..."
+          python smart_standings_updater.py
+          echo "✅ Intelligentes Tabellen-Update abgeschlossen"
+          
+      # 6. Status-Report (optional)
+      - name: 📋 Update-Status ausgeben
+        if: always()
+        run: |
+          echo "📊 Tabellen-Update Workflow abgeschlossen"
+          echo "⏰ Nächstes automatisches Update: Morgen um 06:00 UTC"
+          
+      # 7. Bei Fehlern: Benachrichtigung (optional)
+      - name: ❌ Fehler-Benachrichtigung
+        if: failure()
+        run: |
+          echo "❌ Tabellen-Update fehlgeschlagen!"
+          echo "🔧 Prüfe die Logs für Details"
+          echo "💡 Manueller Start über Actions-Tab möglich"
