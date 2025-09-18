@@ -1280,6 +1280,49 @@ class DatabaseHelper:
             return None
 
 
+    def get_team_standings_history(self, season="2526", team_name="Viktoria Buchholz"):
+        """
+        Liefert den zeitlichen Verlauf der Tabellenplatzierungen aus Supabase
+        """
+        self._ensure_connected()
+
+        if not self.connected:
+            return pd.DataFrame(columns=['match_day', 'games_played', 'position', 'points', 'scraped_at'])
+
+        try:
+            response = (self.supabase.table('team_standings')
+                       .select('match_day, games_played, position, points, scraped_at, team_name')
+                       .eq('season', season)
+                       .ilike('team_name', f'%{team_name}%')
+                       .order('scraped_at')
+                       .execute())
+
+            if not response.data:
+                return pd.DataFrame(columns=['match_day', 'games_played', 'position', 'points', 'scraped_at'])
+
+            df = pd.DataFrame(response.data)
+            df['scraped_at'] = pd.to_datetime(df['scraped_at'], errors='coerce')
+
+            for column in ['match_day', 'games_played', 'position', 'points']:
+                if column in df.columns:
+                    df[column] = pd.to_numeric(df[column], errors='coerce')
+                else:
+                    df[column] = pd.NA
+
+            df['match_day'] = df['match_day'].fillna(df['games_played'])
+            df = df.dropna(subset=['match_day', 'position'])
+
+            df = df.sort_values(['match_day', 'scraped_at'])
+            df = df.drop_duplicates(subset=['match_day'], keep='last')
+
+            return df[['match_day', 'games_played', 'position', 'points', 'scraped_at']].reset_index(drop=True)
+
+        except Exception as e:
+            print(f"Fehler beim Laden der Standings-Historie: {e}")
+            return pd.DataFrame(columns=['match_day', 'games_played', 'position', 'points', 'scraped_at'])
+
+
 
 # Globale Instanz
 db = DatabaseHelper() 
+
