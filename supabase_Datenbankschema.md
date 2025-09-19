@@ -78,3 +78,47 @@ create table public.team_standings (
   scraped_at timestamp with time zone not null default now(),
   constraint team_standings_pkey primary key (standing_id)
 ) TABLESPACE pg_default;
+
+create table public.events (
+  match_id text null,
+  source_url text null,
+  minute integer null,
+  phase text null,
+  type text null,
+  team_side text null,
+  player_primary text null,
+  player_id text null,
+  player_in text null,
+  player_id_in text null,
+  player_out text null,
+  player_id_out text null,
+  score_home integer null,
+  score_away integer null,
+  detail text null,
+  raw text null
+) TABLESPACE pg_default;
+
+create table public.lineups (
+  match_id text null,
+  source_url text null,
+  team_side text null,
+  team_name text null,
+  role text null,
+  number integer null,
+  name text null,
+  player_id text null,
+  is_captain boolean null,
+  is_goalkeeper boolean null
+) TABLESPACE pg_default;
+
+create table public.matches (
+  match_id text null,
+  source_url text null,
+  competition text null,
+  season text null,
+  match_date date null,
+  home_team text null,
+  away_team text null,
+  score_home integer null,
+  score_away integer null
+) TABLESPACE pg_default;

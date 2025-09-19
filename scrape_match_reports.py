@@ -152,7 +152,7 @@ def get_supabase_client() -> "Client":
     return SUPABASE_CLIENT
 
 MINUTE_PATTERN = re.compile(r"(\d+)(?:\+(\d+))?")
-SCORE_PATTERN = re.compile(r"(\d+)\s*[:/-]\s*(\d+)")
+SCORE_PATTERN = re.compile(r"\b(\d{1,3})\s*[:-]\s*(\d{1,3})\b")
 DATE_PATTERNS: List[Tuple[re.Pattern[str], str]] = [
     (re.compile(r"(\d{1,2}\.\d{1,2}\.\d{4})"), "%d.%m.%Y"),
     (re.compile(r"(\d{1,2}\.\d{1,2}\.\d{2})"), "%d.%m.%y"),
