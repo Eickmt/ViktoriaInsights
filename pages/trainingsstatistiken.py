@@ -293,7 +293,7 @@ def show():
     st.info(f"📊 Anzeige für: **{filter_text}** ({filter_option})")
     
     # Tabs for different views
-    tab1, tab2, tab3 = st.tabs(["🏆 Spieler-Ranking", "📈 Trends & Analysen", "📋 Detailansicht"])
+    tab1, tab2 = st.tabs(["🏆 Spieler-Ranking", "📈 Trends & Analysen"])
     
     with tab1:
         st.subheader("🏆 Spieler-Ranking")
@@ -486,14 +486,26 @@ def show():
                 daily_stats = daily_stats.sort_values('Datum')
                 
                 if len(daily_stats) > 0:
-                    fig1 = px.line(daily_stats, x='Datum', y='Spieler',
-                                  title='Spieler pro Training (basierend auf Siegen)',
-                                  line_shape='spline')
+                    fig1 = px.line(
+                        daily_stats,
+                        x='Datum',
+                        y='Spieler',
+                        title='Spieler pro Training (basierend auf Siegen)',
+                        line_shape='linear'
+                    )
                     fig1.update_traces(line_color='#1e3c72', line_width=3, mode='lines+markers')
                     fig1.update_layout(
                         plot_bgcolor='rgba(0,0,0,0)',
                         paper_bgcolor='rgba(0,0,0,0)',
-                        yaxis_title="Anzahl Spieler"
+                        yaxis_title="Anzahl Spieler",
+                        xaxis=dict(
+                            showgrid=True,
+                            gridcolor='rgba(200, 200, 200, 0.3)'
+                        ),
+                        yaxis=dict(
+                            showgrid=True,
+                            gridcolor='rgba(200, 200, 200, 0.3)'
+                        )
                     )
                     st.plotly_chart(fig1, use_container_width=True)
                 else:
@@ -517,104 +529,41 @@ def show():
                     paper_bgcolor='rgba(0,0,0,0)'
                 )
                 st.plotly_chart(fig2, use_container_width=True)
-        
-        # Weekly/Monthly analysis if enough data
-        if len(df_victories) > 0:
-            st.subheader("📊 Zeitraum-Analyse")
-            
-            # Group by week if we have enough data
-            if df_victories['Datum'].nunique() > 1:  # Changed from 7 to 1 to show analysis even with few dates
-                # Create a better weekly analysis based on victories only
-                df_weekly = df_victories.copy()
-                df_weekly['Woche'] = df_victories['Datum'].dt.to_period('W-MON')  # Week starting Monday
-                
-                # Get all weeks in the data
-                all_weeks = sorted(df_weekly['Woche'].unique())
-                
-                # Show only top 5 performers for clarity
-                top_performers = spieler_ranking.head(5)['Spieler'].tolist()
-                
-                # Create a complete dataset with all combinations
-                weekly_data = []
-                for week in all_weeks:
-                    for player in top_performers:
-                        # Count victories for this player in this week (only actual victories)
-                        player_week_victories = len(df_weekly[
-                            (df_weekly['Woche'] == week) & 
-                            (df_weekly['Spieler'] == player) &
-                            (df_weekly['Sieg'] == True)  # Only count actual victories
-                        ])
-                        weekly_data.append({
-                            'Woche': str(week),
-                            'Spieler': player,
-                            'Siege': player_week_victories
-                        })
-                
-                weekly_df = pd.DataFrame(weekly_data)
-                
-                if len(weekly_df) > 0 and weekly_df['Siege'].sum() > 0:
-                    # Clean up week format for display - make it more readable
-                    weekly_df['Woche_Display'] = weekly_df['Woche'].apply(
-                        lambda x: f"KW {str(x).split('-W')[1]}" if '-W' in str(x) else str(x)
-                    )
-                    
-                    fig3 = px.line(weekly_df, 
-                                  x='Woche_Display', 
-                                  y='Siege', 
-                                  color='Spieler',
-                                  title='Wöchentliche Siege - Top 5 Spieler',
-                                  markers=True)
-                    fig3.update_layout(
-                        plot_bgcolor='rgba(0,0,0,0)',
-                        paper_bgcolor='rgba(0,0,0,0)',
-                        xaxis_title="Kalenderwoche",
-                        yaxis_title="Anzahl Siege",
-                        xaxis={'tickangle': 45}
-                    )
-                    fig3.update_traces(line_width=2, marker_size=6)
-                    st.plotly_chart(fig3, use_container_width=True)
-                else:
-                    st.info("Nicht genügend Siegesdaten für Zeitraum-Analyse verfügbar.")
-            else:
-                st.info("Mindestens 2 verschiedene Trainingstage für Zeitraum-Analyse erforderlich.")
-    
-    with tab3:
-        st.subheader("📋 Detailansicht")
-        
-        # Show raw data in a nice format
+        st.markdown("---")
+        st.subheader("📋 Detailanalyse")
+
+        # Show raw data in a nice format (moved from Detailansicht)
         if len(df_filtered) > 0:
             # Create a pivot table for better overview with individual dates
             pivot_table = df_filtered.pivot_table(
-                index='Spieler', 
-                columns='Datum', 
-                values='Sieg', 
+                index='Spieler',
+                columns='Datum',
+                values='Sieg',
                 aggfunc='sum',
                 fill_value=0
             )
-            
+
             # Format dates for column headers
             pivot_table.columns = [d.strftime("%d.%m.%Y") for d in pivot_table.columns]
-            
-            # Add total column
+
+            # Add total column and sort by total victories
             pivot_table['Gesamt'] = pivot_table.sum(axis=1)
-            
-            # Sort by total
             pivot_table = pivot_table.sort_values('Gesamt', ascending=False)
-            
+
             st.subheader("🗓️ Siege pro Spieler und Trainingstag")
             st.dataframe(pivot_table, use_container_width=True)
-            
+
             # Summary statistics
             st.markdown("---")
             st.subheader("📊 Zusammenfassung")
-            
+
             col1, col2 = st.columns(2)
-            
+
             with col1:
                 st.markdown("**Top 5 Spieler:**")
                 for i, (spieler, siege) in enumerate(pivot_table['Gesamt'].head(5).items()):
                     st.write(f"{i+1}. {spieler.capitalize()}: {siege} Siege")
-            
+
             with col2:
                 st.markdown("**Aktivste Trainingstage:**")
                 # Calculate based on victories × 2 (number of players per training)
@@ -622,7 +571,7 @@ def show():
                 daily_victories.columns = ['Datum', 'Siege']
                 daily_victories['Spieler'] = daily_victories['Siege'] * 2  # 2 teams per training
                 daily_victories = daily_victories.sort_values('Spieler', ascending=False)
-                
+
                 for i, (_, row) in enumerate(daily_victories.head(5).iterrows()):
                     datum_str = row['Datum'].strftime('%d.%m.%Y')
                     spieler_count = row['Spieler']
