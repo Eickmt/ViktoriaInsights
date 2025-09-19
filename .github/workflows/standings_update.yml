@@ -60,15 +60,25 @@ jobs:
           echo "🚀 Starte Intelligentes ViktoriaInsights Tabellen-Update..."
           python smart_standings_updater.py
           echo "✅ Intelligentes Tabellen-Update abgeschlossen"
-          
-      # 6. Status-Report (optional)
+
+      # 6. Spielberichte aktualisieren
+      - name: 📄 Spielberichte synchronisieren
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          echo "📰 Aktualisiere Spielberichte..."
+          python scrape_match_reports.py --file match_urls.txt
+          echo "✅ Spielberichte erfolgreich aktualisiert"
+
+      # 7. Status-Report (optional)
       - name: 📋 Update-Status ausgeben
         if: always()
         run: |
           echo "📊 Tabellen-Update Workflow abgeschlossen"
           echo "⏰ Nächstes automatisches Update: Morgen um 06:00 UTC"
-          
-      # 7. Bei Fehlern: Benachrichtigung (optional)
+
+      # 8. Bei Fehlern: Benachrichtigung (optional)
       - name: ❌ Fehler-Benachrichtigung
         if: failure()
         run: |
