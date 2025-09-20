@@ -1,18 +1,15 @@
 import streamlit as st
-
 import pandas as pd
-
 import plotly.express as px
-
-import plotly.graph_objects as go
-
 from datetime import datetime, timedelta
-
 import os
-
 import sys
-
 import requests
+
+from dotenv import load_dotenv
+
+
+load_dotenv()
 
 
 
@@ -405,8 +402,6 @@ def show():
             delta=delta_text
 
         )
-
-    
 
     st.markdown("---")
 

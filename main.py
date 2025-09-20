@@ -9,6 +9,7 @@ from datetime import datetime
 sys.path.append(os.path.join(os.path.dirname(__file__), 'pages'))
 
 from pages import startseite, teamkalender, trainingsstatistiken, esel_der_woche
+import pages.buchholz_ki as buchholz_ki
 from database_helper import db
 from timezone_helper import get_german_date_now
 
@@ -804,9 +805,9 @@ def main():
         selected = option_menu(
             menu_title="Navigation",
             options=["Startseite", "Teamkalender", 
-                    "Trainingsstatistiken", "Esel der Woche"],
+                    "Trainingsstatistiken", "Esel der Woche", "Buchholz KI"],
             icons=["house", "calendar", "bar-chart", 
-                  "person-x"],
+                  "person-x", "robot"],
             menu_icon="list",
             default_index=0,
             styles={
@@ -845,6 +846,8 @@ def main():
         trainingsstatistiken.show()
     elif selected == "Esel der Woche":
         esel_der_woche.show()
+    elif selected == "Buchholz KI":
+        buchholz_ki.show()
 
 if __name__ == "__main__":
     main() 
