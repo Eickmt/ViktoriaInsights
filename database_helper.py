@@ -539,16 +539,33 @@ class DatabaseHelper:
         
         try:
             # Komplexe Abfrage mit JOINs über fact_training_win, dim_player, dim_date
-            response = self.supabase.table('fact_training_win').select('''
-                *,
-                dim_player(name),
-                dim_date(full_date)
-            ''').order('date_key', desc=True).execute()
+            # Supabase/PostgREST liefert max. 1000 Zeilen pro Request -> paginieren
+            all_rows = []
+            page_size = 1000
+            offset = 0
+            while True:
+                response = self.supabase.table('fact_training_win').select('''
+                    *,
+                    dim_player(name),
+                    dim_date(full_date)
+                ''').order('date_key', desc=True).range(offset, offset + page_size - 1).execute()
+                
+                batch = response.data or []
+                if not batch:
+                    break
+                
+                all_rows.extend(batch)
+                
+                # Weniger als page_size zurückbekommen -> letzte Seite
+                if len(batch) < page_size:
+                    break
+                
+                offset += page_size
             
-            if response.data:
+            if all_rows:
                 # Verarbeite die verschachtelten Daten
                 processed_data = []
-                for row in response.data:
+                for row in all_rows:
                     try:
                         # Extrahiere Daten aus den JOINs
                         player_name = row.get('dim_player', {}).get('name', 'Unbekannt') if row.get('dim_player') else 'Unbekannt'
@@ -1325,4 +1342,3 @@ class DatabaseHelper:
 
 # Globale Instanz
 db = DatabaseHelper() 
-
