@@ -238,7 +238,8 @@ def show():
     
     filter_option = st.sidebar.selectbox(
         "Wählen Sie den Analysezeitraum:",
-        ["Gesamtzeitraum", "Hinrunde", "Rückrunde", "Letzte 30 Tage", "Letzte 7 Tage"]
+        ["Gesamtzeitraum", "Hinrunde", "Rückrunde", "Letzte 30 Tage", "Letzte 7 Tage"],
+        index=2
     )
     
     # Apply date filter
