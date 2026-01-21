@@ -238,11 +238,12 @@ def show():
     
     filter_option = st.sidebar.selectbox(
         "Wählen Sie den Analysezeitraum:",
-        ["Gesamtzeitraum", "Letzte 30 Tage", "Letzte 7 Tage"]
+        ["Gesamtzeitraum", "Hinrunde", "Rückrunde", "Letzte 30 Tage", "Letzte 7 Tage"]
     )
     
     # Apply date filter
     heute = get_german_now_naive()
+    halbserie_stichtag = datetime(2026, 1, 1)
     if filter_option == "Letzte 7 Tage":
         start_datum = heute - timedelta(days=7)
         df_filtered = df_melted[df_melted['Datum'] >= start_datum]
@@ -250,6 +251,13 @@ def show():
     elif filter_option == "Letzte 30 Tage":
         start_datum = heute - timedelta(days=30)
         df_filtered = df_melted[df_melted['Datum'] >= start_datum]
+        filter_text = "den letzten 30 Tagen"
+    elif filter_option == "Hinrunde":
+        df_filtered = df_melted[df_melted['Datum'] < halbserie_stichtag]
+        filter_text = f"der Hinrunde (vor dem {halbserie_stichtag.strftime('%d.%m.%Y')})"
+    elif filter_option == "Rückrunde":
+        df_filtered = df_melted[df_melted['Datum'] >= halbserie_stichtag]
+        filter_text = f"der Rückrunde (ab dem {halbserie_stichtag.strftime('%d.%m.%Y')})"
     else:
         df_filtered = df_melted.copy()
         filter_text = "dem Gesamtzeitraum"
