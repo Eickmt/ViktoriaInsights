@@ -163,7 +163,7 @@ Dieses Projekt ist für den internen Gebrauch von Viktoria Buchholz erstellt.
 
 ## 👥 Kontakt
 
-Bei Fragen oder Verbesserungsvorschlägen wenden Sie sich an die Mannschaftsleitung.
+Bei Fragen oder Verbesserungsvorschlägen wenden Sie sich an die Mannschaftsleitung
 
 ---
 
