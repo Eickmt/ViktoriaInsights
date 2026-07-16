@@ -18,6 +18,7 @@ except ImportError:  # pragma: no cover - optional dependency
         return None
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_sql_agent import build_agent, get_schema_overview
+from season_config import CURRENT_MATCH_SEASON
 from supabase import Client, create_client
 
 load_dotenv()
@@ -155,7 +156,7 @@ def generate_example_questions(schema_overview: str) -> List[str]:
         "ohne Aufzählungszeichen. Stelle keine Fragen zu zukünftigen oder kommenden Gegnern, "
         "verwende keine Fragen zur Siegquote und verzichte strikt auf Platzhalter wie Namen in eckigen Klammern. "
         "Beschränke dich auf die aktuelle Saison und stelle keine Fragen zu vergangenen Spielzeiten. "
-        "Wenn du die Saison filterst, verwende unbedingt das Schemaformat matches.season = '25/26'. Die Werte sind in der Datenbank als 25/26 gespeichert. "
+        f"Wenn du die Saison filterst, verwende unbedingt das Schemaformat matches.season = '{CURRENT_MATCH_SEASON}'. Die Werte sind in der Datenbank als {CURRENT_MATCH_SEASON} gespeichert. "
         "Erzeuge genau drei Fragen: Zwei davon müssen auf Spielevents (Tabellen matches, events, lineups oder team_standings) basieren, "
         "die dritte Frage muss sich auf Strafen oder Training (Tabellen fact_penalty, fact_training_win, dim_penalty_type, dim_player oder dim_date) stützen. "
         "Wenn du Tordaten analysierst, joine events mit matches über match_id und berücksichtige nur Tore, bei denen (team_side = 'home' UND matches.home_team = 'TuS Viktoria Buchholz') "
@@ -184,7 +185,7 @@ def generate_fact_questions(schema_overview: str) -> List[str]:
         "Jede Frage in einer eigenen Zeile ohne Aufzählungszeichen. Vermeide Themen zu zukünftigen "
         "oder kommenden Gegnern, verzichte auf Fragen zur Siegquote und verwende keinerlei Platzhalter. "
         "Beschränke dich auf die laufende Saison und stelle keine Fragen zu vergangenen Spielzeiten. "
-        "Wenn du auf eine Saison verweist, nutze das Format aus dem Schema (z. B. matches.season = '25/26'). "
+        f"Wenn du auf eine Saison verweist, nutze das Format aus dem Schema (z. B. matches.season = '{CURRENT_MATCH_SEASON}'). "
         "Fragen dürfen nicht darauf abzielen, wie viele Karten eine bestimmte Mannschaft oder ein einzelner Spieler erhalten hat; "
         "allgemeine Analysen zu Karten (z. B. nach Spielzeit oder Kartenfarbe) sind erlaubt. "
         "Die Fragen müssen vollständig konkret sein. Schema:\n" + schema_overview

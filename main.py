@@ -11,6 +11,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'pages'))
 from pages import startseite, teamkalender, trainingsstatistiken, esel_der_woche
 import pages.buchholz_ki as buchholz_ki
 from database_helper import db
+from season_config import TRAINING_SEASON_START
 from timezone_helper import get_german_date_now
 
 # Page configuration
@@ -271,7 +272,7 @@ def show_token_training_wins_input():
         
         # Load recent training days from database
         try:
-            df_victories = db.get_training_victories()
+            df_victories = db.get_training_victories(season_start=None)
             
             if df_victories is None or len(df_victories) == 0:
                 st.info("📋 Keine Trainingstage in der Datenbank gefunden.")
@@ -280,6 +281,7 @@ def show_token_training_wins_input():
                 unique_dates = sorted(df_victories['Datum'].dt.date.unique(), reverse=True)
                 
                 st.metric("📊 Trainingstage in der Datenbank", len(unique_dates))
+                st.caption(f"Verwaltung zeigt alle Saisons; Auswertungen zählen ab {TRAINING_SEASON_START.strftime('%d.%m.%Y')}.")
                 
                 # Show last 20 training days for management
                 st.markdown("#### 🗓️ Letzte Trainingstage")

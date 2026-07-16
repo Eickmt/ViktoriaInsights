@@ -8,6 +8,7 @@ import streamlit as st
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_sql_agent import build_agent, get_schema_overview
+from season_config import CURRENT_MATCH_SEASON
 
 load_dotenv()
 
@@ -31,7 +32,7 @@ def get_example_questions(schema: str) -> List[str]:
         "ohne Aufzählungszeichen. Stelle keine Fragen zu zukünftigen oder kommenden Gegnern, "
         "verwende keine Fragen zur Siegquote und verzichte strikt auf Platzhalter wie Namen in eckigen Klammern. "
         "Beziehe dich ausschließlich auf die laufende Saison und stelle keine Fragen zu vergangenen Spielzeiten. "
-        "Wenn du die Saison einschränkst, nutze unbedingt das Format wie im Schema (z. B. matches.season = '25/26'). Die Werte sind in der Datenbank als 25/26 gespeichert. "
+        f"Wenn du die Saison einschränkst, nutze unbedingt das Format wie im Schema (z. B. matches.season = '{CURRENT_MATCH_SEASON}'). Die Werte sind in der Datenbank als {CURRENT_MATCH_SEASON} gespeichert. "
         "Erzeuge genau drei Fragen: zwei davon müssen sich auf Spielevents (Tabellen matches, events, lineups oder team_standings) beziehen, "
         "die dritte Frage muss sich auf Strafen oder Training (Tabellen fact_penalty, fact_training_win, dim_penalty_type, dim_player oder dim_date) stützen. "
         "Wenn du Tordaten analysierst, joine events mit matches über match_id und filtere nur Tore, bei denen (team_side = 'home' UND matches.home_team = 'TuS Viktoria Buchholz') "

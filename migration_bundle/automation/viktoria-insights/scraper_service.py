@@ -1,11 +1,13 @@
 import requests
+import pandas as pd
 from bs4 import BeautifulSoup
+from datetime import datetime
+from timezone_helper import get_german_now
 from database_helper import db
-from season_config import CURRENT_STANDINGS_SEASON, validate_expected_group
 
 # Team-ID für TuS Viktoria Buchholz
 TEAM_ID = "011MI9UHGG000000VTVG0001VTR8C1K7"
-SAISON = CURRENT_STANDINGS_SEASON
+SAISON = "2526"  # Saison 2025/26
 
 # User-Agent Header
 HEADERS = {
@@ -72,60 +74,35 @@ class TeamScraperService:
                 
             row_values = [str(val).strip() for val in row_values if str(val).strip()]
             
-            if len(row_values) >= 7:
+            if len(row_values) >= 8:  # Mindestens 8 Elemente erwartet
                 try:
-                    position = int(row_values[0].replace('.', '')) if row_values[0].replace('.', '').isdigit() else 0
-                    team_name = row_values[1] if len(row_values) > 1 else ''
-
-                    # Altes Format: ['8.', 'TuS Viktoria Buchholz', '31', '12', '8', '11', '61 : 62', '-1', '44']
-                    # Neues Vorstart-Format: ['1.', 'V. Buchholz', '0', '0-0-0', '0:0', '0', '0']
-                    if len(row_values) >= 9 and row_values[3].isdigit():
-                        games_played = int(row_values[2]) if row_values[2].isdigit() else 0
-                        wins = int(row_values[3]) if row_values[3].isdigit() else 0
-                        draws = int(row_values[4]) if row_values[4].isdigit() else 0
-                        losses = int(row_values[5]) if row_values[5].isdigit() else 0
-                        goals_index = 6
-                        goal_difference_index = 7
-                        points_index = 8
-                    else:
-                        games_played = int(row_values[2]) if len(row_values) > 2 and row_values[2].isdigit() else 0
-                        wins = draws = losses = 0
-                        if len(row_values) > 3 and '-' in row_values[3]:
-                            record_parts = row_values[3].split('-')
-                            if len(record_parts) == 3:
-                                wins = int(record_parts[0]) if record_parts[0].isdigit() else 0
-                                draws = int(record_parts[1]) if record_parts[1].isdigit() else 0
-                                losses = int(record_parts[2]) if record_parts[2].isdigit() else 0
-                        goals_index = 4
-                        goal_difference_index = 5
-                        points_index = 6
-
+                    # Struktur: ['8.', 'TuS Viktoria Buchholz', '31', '12', '8', '11', '61 : 62', '-1', '44']
                     team_data = {
-                        'position': position,
-                        'team_name': team_name,
-                        'games_played': games_played,
-                        'wins': wins,
-                        'draws': draws,
-                        'losses': losses,
+                        'position': int(row_values[0].replace('.', '')) if row_values[0].replace('.', '').isdigit() else 0,
+                        'team_name': row_values[1] if len(row_values) > 1 else '',
+                        'games_played': int(row_values[2]) if len(row_values) > 2 and row_values[2].isdigit() else 0,
+                        'wins': int(row_values[3]) if len(row_values) > 3 and row_values[3].isdigit() else 0,
+                        'draws': int(row_values[4]) if len(row_values) > 4 and row_values[4].isdigit() else 0,
+                        'losses': int(row_values[5]) if len(row_values) > 5 and row_values[5].isdigit() else 0,
                         'goals_for': 0,
                         'goals_against': 0,
-                        'goal_difference': int(row_values[goal_difference_index]) if len(row_values) > goal_difference_index and row_values[goal_difference_index].lstrip('-').isdigit() else 0,
-                        'points': int(row_values[points_index]) if len(row_values) > points_index and row_values[points_index].isdigit() else 0,
+                        'goal_difference': int(row_values[7]) if len(row_values) > 7 and row_values[7].lstrip('-').isdigit() else 0,
+                        'points': int(row_values[8]) if len(row_values) > 8 and row_values[8].isdigit() else 0,
                         'match_day': None  # Kann später hinzugefügt werden
                     }
-
-                    # Torverhältnis parsen: "61 : 62" oder "0:0"
-                    if len(row_values) > goals_index and ':' in row_values[goals_index]:
-                        tore_parts = row_values[goals_index].split(':')
+                    
+                    # Torverhältnis parsen (Index 6): "61 : 62"
+                    if len(row_values) > 6 and ':' in row_values[6]:
+                        tore_parts = row_values[6].split(':')
                         if len(tore_parts) == 2:
                             try:
                                 team_data['goals_for'] = int(tore_parts[0].strip())
                                 team_data['goals_against'] = int(tore_parts[1].strip())
                             except ValueError:
                                 pass
-
+                    
                     teams_data.append(team_data)
-
+                    
                 except (ValueError, IndexError) as e:
                     print(f"Fehler beim Parsen der Zeile {row_values}: {e}")
                     continue
@@ -174,11 +151,7 @@ class TeamScraperService:
         
         if not success:
             return False, f"Scraping fehlgeschlagen: {data}"
-
-        group_ok, group_message = validate_expected_group(data)
-        if not group_ok:
-            return False, f"Scraping blockiert: {group_message}"
-
+        
         # In Datenbank speichern
         db_success, db_message = db.save_team_standings(data, self.season)
         

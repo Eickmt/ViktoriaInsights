@@ -6,11 +6,12 @@ import plotly.graph_objects as go
 import os
 import numpy as np
 from database_helper import db
+from season_config import SEASON_DISPLAY, TRAINING_SEASON_START
 from timezone_helper import get_german_now, get_german_date_now, get_german_now_naive
 
 def show():
     st.title("🏆 Trainingsspielsiege")
-    st.subheader("Spielerleistung und Siegesanalyse")
+    st.subheader(f"Spielerleistung und Siegesanalyse Saison {SEASON_DISPLAY}")
     
     # Add CSS for better input field contrast
     st.markdown("""
@@ -130,7 +131,7 @@ def show():
         
         if df_melted is None or len(df_melted) == 0:
             st.warning("Keine Siegesdaten in der Datenbank gefunden.")
-            st.info("Bitte fügen Sie zunächst Trainingsdaten über den entsprechenden Tab hinzu.")
+            st.info(f"Für die Saison {SEASON_DISPLAY} zählen Trainings ab {TRAINING_SEASON_START.strftime('%d.%m.%Y')}.")
             return
         
         # Ensure we have the right column names and data types
@@ -207,6 +208,9 @@ def show():
             
             df_melted = pd.DataFrame(melted_data)
             
+            if len(df_melted) > 0:
+                df_melted = df_melted[df_melted['Datum'] >= pd.Timestamp(TRAINING_SEASON_START)]
+
             if len(df_melted) == 0:
                 st.warning("Keine Siegesdaten gefunden. Bitte überprüfen Sie die CSV-Datei.")
                 return
@@ -239,12 +243,12 @@ def show():
     filter_option = st.sidebar.selectbox(
         "Wählen Sie den Analysezeitraum:",
         ["Gesamtzeitraum", "Hinrunde", "Rückrunde", "Letzte 30 Tage", "Letzte 7 Tage"],
-        index=2
+        index=0
     )
     
     # Apply date filter
     heute = get_german_now_naive()
-    halbserie_stichtag = datetime(2026, 1, 1)
+    halbserie_stichtag = datetime(2027, 1, 1)
     if filter_option == "Letzte 7 Tage":
         start_datum = heute - timedelta(days=7)
         df_filtered = df_melted[df_melted['Datum'] >= start_datum]
@@ -260,8 +264,8 @@ def show():
         df_filtered = df_melted[df_melted['Datum'] >= halbserie_stichtag]
         filter_text = f"der Rückrunde (ab dem {halbserie_stichtag.strftime('%d.%m.%Y')})"
     else:
-        df_filtered = df_melted.copy()
-        filter_text = "dem Gesamtzeitraum"
+        df_filtered = df_melted[df_melted['Datum'] >= pd.Timestamp(TRAINING_SEASON_START)].copy()
+        filter_text = f"der Saison {SEASON_DISPLAY} ab {TRAINING_SEASON_START.strftime('%d.%m.%Y')}"
     
     # Calculate statistics
     if len(df_filtered) == 0:

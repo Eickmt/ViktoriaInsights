@@ -18,6 +18,7 @@ load_dotenv()
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from database_helper import db
+from season_config import SEASON_DISPLAY, SEASON_MATCH_START
 
 from timezone_helper import get_german_now, get_german_now_naive, make_naive_german_datetime, calculate_days_until_birthday
 
@@ -355,7 +356,7 @@ def show():
 
             value="€ 100.00",
 
-            delta="Stand 01.07.2025"
+            delta="Stand 01.07.2026"
 
         )
 
@@ -461,7 +462,7 @@ def show():
             max_match_day = max(max_match_day, 1)
 
             fig = px.line(df_fieberkurve, x='Spieltag', y='Platzierung',
-                         title='Fieberkurve - Tabellenplatzierung Saison 2025/26',
+                         title=f'Fieberkurve - Tabellenplatzierung Saison {SEASON_DISPLAY}',
                          line_shape='linear')
             fig.update_traces(
                 line_color='#1e3c72',
@@ -503,55 +504,13 @@ def show():
             st.plotly_chart(fig, use_container_width=True)
 
 
-        except Exception as e:
+        except Exception:
 
-            # Fallback if Supabase data can't be loaded
-
-            st.error(f"❌ Live-Daten konnten nicht geladen werden: {str(e)}")
-
-            
-
-            # Fallback to sample data
-
-            performance_data = {
-
-                'Monat': ['August', 'September', 'Oktober', 'November', 'Dezember'],
-
-                'Trainingsquote': [85, 88, 82, 90, 87],
-
-                'Spiele': [4, 5, 3, 4, 2],
-
-                'Siege': [3, 3, 2, 3, 1]
-
-            }
-
-            
-
-            df = pd.DataFrame(performance_data)
-
-            
-
-            # Training attendance chart
-
-            fig = px.line(df, x='Monat', y='Trainingsquote', 
-
-                         title='Trainingsquote der letzten Monate',
-
-                         line_shape='spline')
-
-            fig.update_traces(line_color='#1e3c72', line_width=3)
-
-            fig.update_layout(
-
-                plot_bgcolor='rgba(0,0,0,0)',
-
-                paper_bgcolor='rgba(0,0,0,0)',
-
-                font_color='#333'
-
+            start_text = SEASON_MATCH_START.strftime('%d.%m.%Y')
+            st.info(
+                f"Für die Saison {SEASON_DISPLAY} liegen noch keine echten Tabellendaten vor. "
+                f"Bis zum ersten Spieltag am {start_text} wird die Starttabelle mit 0 Spielen geführt."
             )
-
-            st.plotly_chart(fig, use_container_width=True)
 
         
 
@@ -579,17 +538,17 @@ def show():
 
             # Fallback bei Fehlern
 
-            st.info("""
+            st.info(f"""
 
-            **Saison 2024/25**
+            **Saison {SEASON_DISPLAY}**
 
             - Liga: Bezirksliga
 
-            - Tabellenplatz: 8.
+            - Tabellenplatz: 1.
 
-            - Punkte: 44
+            - Punkte: 0
 
-            - Torverhältnis: 61:62
+            - Torverhältnis: 0:0
 
             """)
 

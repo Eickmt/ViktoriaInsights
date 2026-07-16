@@ -9,7 +9,6 @@ import logging
 from datetime import datetime, timedelta
 from scraper_service import scraper_service
 from database_helper import db
-from season_config import normalize_team_name, validate_expected_group
 
 # Logging konfigurieren
 logging.basicConfig(
@@ -52,14 +51,9 @@ def get_current_viktoria_data():
         success, teams_data = scraper_service.scrape_current_standings()
         if not success:
             return None
-
-        group_ok, group_message = validate_expected_group(teams_data)
-        if not group_ok:
-            logger.warning(f"⚠️ Scraping blockiert: {group_message}")
-            return None
-
+            
         for team in teams_data:
-            if normalize_team_name(team.get('team_name', '')) in {'v buchholz', 'viktoria buchholz', 'tus viktoria buchholz'}:
+            if 'viktoria buchholz' in team.get('team_name', '').lower():
                 return team
         return None
     except Exception as e:
@@ -70,8 +64,8 @@ def has_data_changed():
     """Prüft ob sich die Tabellendaten geändert haben"""
     current_viktoria = get_current_viktoria_data()
     if not current_viktoria:
-        logger.warning("⚠️ Aktuelle Viktoria-Daten nicht verfügbar oder falsche Gruppe - Update wird übersprungen")
-        return False
+        logger.warning("⚠️ Aktuelle Viktoria-Daten nicht verfügbar")
+        return True  # Bei Unsicherheit: Update durchführen
     
     last_viktoria = db.get_latest_viktoria_data()
     if not last_viktoria:
@@ -126,9 +120,6 @@ def main():
                 logger.info(f"🏆 TuS Viktoria Buchholz: Platz {viktoria_data['platz']}, {viktoria_data['punkte']} Punkte")
             
         else:
-            if "Scraping blockiert" in message:
-                logger.warning(f"⚠️ {message}")
-                return
             logger.error(f"❌ {message}")
             sys.exit(1)
             

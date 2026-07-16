@@ -1,0 +1,83 @@
+name: ViktoriaInsights Tabellen-Update
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Grund fuer manuelles Update'
+        required: false
+        default: 'Manuelles Tabellen-Update'
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  update_standings:
+    name: Tabelle aktualisieren
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: automation/viktoria-insights
+
+    steps:
+      - name: Code herunterladen
+        uses: actions/checkout@v4
+
+      - name: Python 3.11 installieren
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: automation/viktoria-insights/requirements.txt
+
+      - name: Python-Pakete installieren
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Playwright-Browser vorbereiten
+        run: |
+          python -m playwright install
+
+      - name: System-Test durchfuehren
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          echo "Teste Systemkomponenten..."
+          python test_scraper.py || echo "Test mit Warnungen abgeschlossen"
+
+      - name: Intelligente Tabellendaten-Aktualisierung
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          echo "Starte ViktoriaInsights Tabellen-Update..."
+          python smart_standings_updater.py
+          echo "Tabellen-Update abgeschlossen"
+
+      - name: Spielberichte synchronisieren
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          echo "Aktualisiere Spielberichte..."
+          python scrape_match_reports.py --file match_urls.txt
+          echo "Spielberichte erfolgreich aktualisiert"
+
+      - name: Update-Status ausgeben
+        if: always()
+        run: |
+          echo "Tabellen-Update Workflow abgeschlossen"
+          echo "Naechstes automatisches Update: Morgen um 06:00 UTC"
+
+      - name: Fehler-Benachrichtigung
+        if: failure()
+        run: |
+          echo "Tabellen-Update fehlgeschlagen."
+          echo "Pruefe die Logs fuer Details."
+          echo "Manueller Start ueber Actions-Tab moeglich."

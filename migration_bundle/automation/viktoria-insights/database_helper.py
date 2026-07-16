@@ -1,19 +1,7 @@
 import os
 import pandas as pd
-from datetime import date, datetime
+from datetime import datetime
 from timezone_helper import get_german_now, convert_to_german_tz
-from season_config import CURRENT_STANDINGS_SEASON, TRAINING_SEASON_START
-
-
-
-def filter_training_victories_for_season(df, season_start=TRAINING_SEASON_START):
-    if season_start is None or df is None or df.empty or 'Datum' not in df.columns:
-        return df
-
-    result = df.copy()
-    result['Datum'] = pd.to_datetime(result['Datum'], errors='coerce')
-    result = result.dropna(subset=['Datum'])
-    return result[result['Datum'] >= pd.Timestamp(season_start)]
 
 # Try to import streamlit (optional)
 try:
@@ -289,8 +277,11 @@ class DatabaseHelper:
                 if processed_data:
                     df = pd.DataFrame(processed_data)
                     
-                    df = filter_training_victories_for_season(df, season_start=season_start)
-                    return df.sort_values('Datum', ascending=False)
+                    # Datum konvertieren
+                    if 'Datum' in df.columns:
+                        df['Datum'] = pd.to_datetime(df['Datum'], errors='coerce')
+                    
+                    return df.dropna(subset=['Datum']).sort_values('Datum', ascending=False)
                 
         except Exception as e:
             print(f"Fehler beim Laden der Strafen aus Supabase (neue Struktur): {e}")
@@ -343,7 +334,7 @@ class DatabaseHelper:
             penalty_date = penalty_data.get('Datum')
             if isinstance(penalty_date, str):
                 # Konvertiere String-Datum zu Date-Objekt
-                from datetime import date, datetime
+                from datetime import datetime
                 penalty_date_obj = datetime.strptime(penalty_date, '%d.%m.%Y').date()
             else:
                 penalty_date_obj = penalty_date
@@ -539,29 +530,25 @@ class DatabaseHelper:
         ]
         return fallback_penalties
     
-    def get_training_victories(self, season_start=TRAINING_SEASON_START):
-        """Lade Trainingsspielsiege aus Supabase, standardmäßig für die aktuelle Saison."""
+    def get_training_victories(self):
+        """Lade alle Trainingsspielsiege aus Supabase (neue Tabellenstruktur mit JOINs)"""
         self._ensure_connected()
         
         if not self.connected:
-            return self._fallback_training_victories(season_start=season_start)
+            return self._fallback_training_victories()
         
         try:
-            season_start_key = int(season_start.strftime('%Y%m%d')) if season_start else None
             # Komplexe Abfrage mit JOINs über fact_training_win, dim_player, dim_date
             # Supabase/PostgREST liefert max. 1000 Zeilen pro Request -> paginieren
             all_rows = []
             page_size = 1000
             offset = 0
             while True:
-                query = self.supabase.table('fact_training_win').select('''
+                response = self.supabase.table('fact_training_win').select('''
                     *,
                     dim_player(name),
                     dim_date(full_date)
-                ''')
-                if season_start_key is not None:
-                    query = query.gte('date_key', season_start_key)
-                response = query.order('date_key', desc=True).range(offset, offset + page_size - 1).execute()
+                ''').order('date_key', desc=True).range(offset, offset + page_size - 1).execute()
                 
                 batch = response.data or []
                 if not batch:
@@ -599,15 +586,18 @@ class DatabaseHelper:
                 if processed_data:
                     df = pd.DataFrame(processed_data)
                     
-                    df = filter_training_victories_for_season(df, season_start=season_start)
-                    return df.sort_values('Datum', ascending=False)
+                    # Datum konvertieren
+                    if 'Datum' in df.columns:
+                        df['Datum'] = pd.to_datetime(df['Datum'], errors='coerce')
+                    
+                    return df.dropna(subset=['Datum']).sort_values('Datum', ascending=False)
                 
         except Exception as e:
             print(f"Fehler beim Laden der Trainingsspielsiege aus Supabase (neue Struktur): {e}")
-            return self._fallback_training_victories(season_start=season_start)
+            return self._fallback_training_victories()
         
         # Fallback wenn Tabelle leer ist
-        return self._fallback_training_victories(season_start=season_start)
+        return self._fallback_training_victories()
     
     def add_training_victory(self, victory_data):
         """Füge einen neuen Trainingssieg hinzu (neue Tabellenstruktur mit Lookups)"""
@@ -630,7 +620,7 @@ class DatabaseHelper:
             # 2. Date Key erstellen/finden
             training_date = victory_data.get('Datum')
             if isinstance(training_date, str):
-                from datetime import date, datetime
+                from datetime import datetime
                 training_date_obj = datetime.strptime(training_date, '%Y-%m-%d').date()
             else:
                 training_date_obj = training_date
@@ -694,7 +684,7 @@ class DatabaseHelper:
         try:
             # 1. Datum zu date_key konvertieren und dim_date sicherstellen
             if isinstance(datum, str):
-                from datetime import date, datetime
+                from datetime import datetime
                 # Versuche verschiedene Datumsformate
                 try:
                     date_obj = datetime.strptime(datum, '%Y-%m-%d').date()
@@ -782,7 +772,7 @@ class DatabaseHelper:
         try:
             # Konvertiere Datum zu date_key (YYYYMMDD Format)
             if isinstance(datum, str):
-                from datetime import date, datetime
+                from datetime import datetime
                 # Versuche verschiedene Datumsformate
                 try:
                     date_obj = datetime.strptime(datum, '%Y-%m-%d').date()
@@ -842,7 +832,7 @@ class DatabaseHelper:
         try:
             # Konvertiere Datum zu date_key (YYYYMMDD Format)
             if isinstance(datum, str):
-                from datetime import date, datetime
+                from datetime import datetime
                 # Versuche verschiedene Datumsformate
                 try:
                     date_obj = datetime.strptime(datum, '%Y-%m-%d').date()
@@ -863,9 +853,9 @@ class DatabaseHelper:
         except Exception as e:
             return False, f"❌ Fehler beim Löschen: {str(e)}"
     
-    def get_training_statistics(self, season_start=TRAINING_SEASON_START):
-        """Hole Trainingsstatistiken aus der Datenbank für die aktuelle Saison."""
-        df = self.get_training_victories(season_start=season_start)
+    def get_training_statistics(self):
+        """Hole Trainingsstatistiken aus der Datenbank"""
+        df = self.get_training_victories()
         
         if df is None or len(df) == 0:
             return {
@@ -918,8 +908,8 @@ class DatabaseHelper:
             'training_delta_text': training_delta_text
         }
     
-    def _fallback_training_victories(self, season_start=TRAINING_SEASON_START):
-        """Fallback: Lade Trainingsspielsiege aus CSV."""
+    def _fallback_training_victories(self):
+        """Fallback: Lade Trainingsspielsiege aus CSV"""
         try:
             df = pd.read_csv("VB_Trainingsspielsiege.csv", sep=";")
             
@@ -962,8 +952,7 @@ class DatabaseHelper:
                         except:
                             continue
             
-            result = pd.DataFrame(melted_data)
-            return filter_training_victories_for_season(result, season_start=season_start)
+            return pd.DataFrame(melted_data)
             
         except Exception as e:
             return pd.DataFrame(columns=['Spieler', 'Datum', 'Sieg'])
@@ -1138,7 +1127,7 @@ class DatabaseHelper:
         
         return None, 0, 0
 
-    def save_team_standings(self, standings_data, season=CURRENT_STANDINGS_SEASON):
+    def save_team_standings(self, standings_data, season="2526"):
         """
         Speichert die komplette Tabellensituation in Supabase
         
@@ -1184,7 +1173,7 @@ class DatabaseHelper:
         except Exception as e:
             return False, f"❌ Fehler beim Speichern: {str(e)}"
 
-    def get_latest_viktoria_data(self, season=CURRENT_STANDINGS_SEASON):
+    def get_latest_viktoria_data(self, season="2526"):
         """
         Lädt die neuesten Daten von TuS Viktoria Buchholz aus der Datenbank
         
@@ -1233,7 +1222,7 @@ class DatabaseHelper:
             print(f"Fehler beim Laden der Viktoria-Daten: {e}")
             return None
 
-    def is_standings_data_current(self, season=CURRENT_STANDINGS_SEASON, max_age_hours=24):
+    def is_standings_data_current(self, season="2526", max_age_hours=24):
         """
         Prüft ob die Tabellendaten aktuell sind (weniger als max_age_hours alt)
         
@@ -1273,7 +1262,7 @@ class DatabaseHelper:
             print(f"Fehler beim Prüfen der Datenaktualität: {e}")
             return False
 
-    def get_standings_last_update(self, season=CURRENT_STANDINGS_SEASON):
+    def get_standings_last_update(self, season="2526"):
         """
         Gibt den Zeitpunkt der letzten Aktualisierung der Tabellendaten zurück
         
@@ -1308,7 +1297,7 @@ class DatabaseHelper:
             return None
 
 
-    def get_team_standings_history(self, season=CURRENT_STANDINGS_SEASON, team_name="Viktoria Buchholz"):
+    def get_team_standings_history(self, season="2526", team_name="Viktoria Buchholz"):
         """
         Liefert den zeitlichen Verlauf der Tabellenplatzierungen aus Supabase
         """

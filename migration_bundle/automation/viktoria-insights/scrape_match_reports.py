@@ -21,8 +21,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
-from season_config import CURRENT_MATCH_SEASON
-
 import unicodedata
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 from playwright.async_api import async_playwright
@@ -58,7 +56,7 @@ TIMEOUT_MS = 25_000
 DELAY_RANGE = (0.5, 1.5)
 TARGET_TEAM = "tus viktoria buchholz"
 COMPETITION_KEYWORD = "bezirksliga"
-SEASON_KEYWORD = CURRENT_MATCH_SEASON
+SEASON_KEYWORD = "25/26"
 
 MATCHES_HEADERS = [
     "match_id",

@@ -1,4 +1,5 @@
 import streamlit as st
+from season_config import SEASON_DISPLAY
 import pandas as pd
 from datetime import datetime, timedelta
 import plotly.express as px
@@ -529,7 +530,7 @@ def show():
         
         with regelwerk_tab2:
             # Load penalty catalog from database instead of hardcoding
-            st.markdown("### 🚨 Aktueller Strafenkatalog Saison 2025/26")
+            st.markdown(f"### 🚨 Aktueller Strafenkatalog Saison {SEASON_DISPLAY}")
             
             try:
                 penalty_data = db.get_penalty_types()

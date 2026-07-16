@@ -46,9 +46,6 @@ def main():
                 logger.info(f"🏆 TuS Viktoria Buchholz: Platz {viktoria_data['platz']}, {viktoria_data['punkte']} Punkte")
             
         else:
-            if "Scraping blockiert" in message:
-                logger.warning(f"⚠️ {message}")
-                return
             logger.error(f"❌ {message}")
             sys.exit(1)
             

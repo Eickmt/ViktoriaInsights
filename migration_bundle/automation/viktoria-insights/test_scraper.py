@@ -6,7 +6,6 @@ Testet alle Komponenten ohne Streamlit-Abhängigkeit
 
 import sys
 import os
-from season_config import CURRENT_STANDINGS_SEASON
 
 def test_imports():
     """Teste alle wichtigen Imports"""
@@ -53,7 +52,7 @@ def test_scraping_only():
         
         # Team-ID für TuS Viktoria Buchholz
         TEAM_ID = "011MI9UHGG000000VTVG0001VTR8C1K7"
-        SAISON = CURRENT_STANDINGS_SEASON
+        SAISON = "2425"
         
         HEADERS = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"

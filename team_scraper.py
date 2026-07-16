@@ -3,19 +3,10 @@ from datetime import datetime
 from database_helper import db
 from scraper_service import scraper_service
 from timezone_helper import get_german_now
+from season_config import SEASON_DISPLAY, get_preseason_viktoria_info
 
-# Fallback-Daten für den Fall von Problemen
-FALLBACK_DATA = {
-    'platz': '8.',
-    'punkte': '44',
-    'spiele': '31',
-    'siege': '12',
-    'unentschieden': '8',
-    'niederlagen': '11',
-    'tore_geschossen': '61',
-    'tore_erhalten': '62',
-    'tordifferenz': '-1'
-}
+# Fallback-Daten bis fussball.de die neue Saison ausliefert.
+FALLBACK_DATA = get_preseason_viktoria_info()
 
 @st.cache_data(ttl=3600)  # Cache für 1 Stunde (da DB bereits tägliches Update hat)
 def get_team_data():
@@ -53,8 +44,8 @@ def get_team_data():
     except Exception as e:
         print(f"Live-Scraping fehlgeschlagen: {e}")
     
-    # 3. Letzter Fallback: Statische Daten
-    return FALLBACK_DATA, "Fallback"
+    # 3. Letzter Fallback: Starttabelle der neuen Saison
+    return FALLBACK_DATA, f"Starttabelle {SEASON_DISPLAY}"
 
 def format_team_info(viktoria_info, data_source):
     """Formatiert die Teaminfos für die Anzeige"""
@@ -68,7 +59,7 @@ def format_team_info(viktoria_info, data_source):
         tore_string = f"{viktoria_info['tore_geschossen']}:{viktoria_info['tore_erhalten']}"
     
     formatted_info = f"""
-    **Saison 2024/25**
+    **Saison {SEASON_DISPLAY}**
     - Liga: Bezirksliga
     - Tabellenplatz: {viktoria_info['platz']}
     - Punkte: {viktoria_info['punkte']}
